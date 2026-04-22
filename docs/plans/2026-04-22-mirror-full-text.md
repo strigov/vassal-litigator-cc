@@ -11,10 +11,10 @@ phases:
     status: done
   - id: Ф3
     scope: "Plan-фазы файловых скиллов: убрать требование фиксировать первые 20000 символов, перейти к ссылке на полный OCR-артефакт"
-    status: in-progress
+    status: done
   - id: Ф4
     scope: "update-index: оба сценария (создание и перегенерация зеркала) используют полный текст"
-    status: pending
+    status: in-progress
   - id: Ф5
     scope: "Сверка ARCHITECTURE.md, tests/, scripts/, smoke-сценариев с новым контрактом"
     status: pending
