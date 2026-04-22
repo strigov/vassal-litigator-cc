@@ -50,24 +50,45 @@
 
 ### 1. Добавьте маркетплейс и установите плагин
 
-В Claude Code:
+В Claude Code выполните по очереди:
 
 ```
 /plugin marketplace add strigov/strigov-cc-plugins
+```
+
+Claude Code скачает `.claude-plugin/marketplace.json` с гитхаба и зарегистрирует маркетплейс под именем `strigov-cc-plugins`.
+
+```
 /plugin install vassal-litigator-cc@strigov-cc-plugins
 ```
 
-Либо через settings (project или user):
+Проверить статус:
+
+```
+/plugin
+```
+
+Во вкладке *Installed* должен появиться `vassal-litigator-cc`. После этого команды `/vassal-litigator-cc:init-case`, `/vassal-litigator-cc:intake` и прочие становятся доступны.
+
+Обновление плагина в дальнейшем:
+
+```
+/plugin update vassal-litigator-cc@strigov-cc-plugins
+```
+
+(подтянет последний коммит из `strigov/vassal-litigator-cc` main.)
+
+**Альтернатива — через settings (project или user):**
 
 ```json
 {
   "extraKnownMarketplaces": {
-    "strigov-cc": {
+    "strigov-cc-plugins": {
       "source": { "source": "github", "repo": "strigov/strigov-cc-plugins" }
     }
   },
   "enabledPlugins": {
-    "vassal-litigator-cc@strigov-cc": true
+    "vassal-litigator-cc@strigov-cc-plugins": true
   }
 }
 ```
