@@ -1,0 +1,53 @@
+# Ожидаемые поля в .vassal/index.yaml после успешного intake
+# (v1.0.0 контракт: plan → review → apply → verify)
+#
+# Это не полный index — это контракт на присутствие обязательных полей.
+# Конкретные значения (date, parties, title) зависят от OCR и классификации
+# Codex plan-фазы; smoke-тест проверяет только структуру и инварианты.
+
+_check:
+  # Структура индекса
+  - field: "version"
+    expected: 2
+  - field: "next_id"
+    kind: "integer >= 6"          # после intake 4 исходных файлов + 1 извлечённого из архива
+  - field: "documents"
+    kind: "non-empty list"
+
+  # Инварианты всех записей
+  - field: "documents[*].id"
+    kind: "matches /^doc-\\d+$/"
+  - field: "documents[*].source"
+    expected: "client"
+  - field: "documents[*].origin.batch"
+    kind: "starts with 'intake-'"
+  - field: "documents[*].mirror_stale"
+    expected: false
+  - field: "documents[*].mirror"
+    kind: "matches /^\\.vassal/mirrors/doc-\\d+\\.md$/"
+  - field: "documents[*].file"
+    kind: "starts with 'Материалы от клиента/'"
+
+  # Файлы, извлечённые из архива, имеют archive_src
+  - field: "documents[origin.archive_src != null].origin.archive_src"
+    kind: "not empty"
+
+  # Если скан.jpg распознан как документ — он должен быть в индексе как PDF
+  # (apply-фаза конвертирует картинку через image_to_pdf.py)
+  - field: "documents[origin.name ~ /скан/i].file"
+    kind: "ends with '.pdf'"
+
+  # Архив-оригинал НЕ индексируется (только его содержимое)
+  - field: "documents[origin.name ~ /архив\\.zip/i]"
+    kind: "not present"
+
+  # Документы, объединённые в комплект (если Codex их так классифицировал),
+  # должны иметь bundle_id и role_in_bundle; приложения — также parent_id
+  - field: "documents[role_in_bundle == 'attachment'].parent_id"
+    kind: "matches /^doc-\\d+$/"
+  - field: "documents[role_in_bundle == 'attachment'].attachment_order"
+    kind: "integer >= 1"
+
+  # Сироты без даты (если появились)
+  - field: "documents[needs_manual_review == true].file"
+    kind: "starts with 'Материалы от клиента/Без даты — '"

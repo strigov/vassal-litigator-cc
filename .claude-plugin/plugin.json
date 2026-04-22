@@ -1,0 +1,18 @@
+{
+  "name": "vassal-litigator-cc",
+  "description": "Вассал (Claude Code edition): плагин для ведения судебных дел — intake материалов, каталогизация, правовой анализ, подготовка к заседаниям, обжалование. Использует openai-codex companion для файлового apply (medium), таймлайна (high), sidecar-визуализаций (image_gen) и контрольного ревью (xhigh). Форк vassal-litigator v0.5.4, адаптированный для Claude Code.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Ian Strigov"
+  },
+  "homepage": "https://github.com/strigov/vassal-litigator-cc",
+  "repository": "https://github.com/strigov/vassal-litigator-cc",
+  "license": "GPL-3.0",
+  "keywords": [
+    "legal",
+    "litigation",
+    "russian-law",
+    "codex",
+    "document-management"
+  ]
+}
