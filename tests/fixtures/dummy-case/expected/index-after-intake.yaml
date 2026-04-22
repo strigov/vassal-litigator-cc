@@ -10,7 +10,7 @@ _check:
   - field: "version"
     expected: 2
   - field: "next_id"
-    kind: "integer >= 6"          # после intake 4 исходных файлов + 1 извлечённого из архива
+    kind: "integer >= 7"          # после intake 5 исходных файлов + 2 извлечённых из архива
   - field: "documents"
     kind: "non-empty list"
 
@@ -40,6 +40,12 @@ _check:
   # Архив-оригинал НЕ индексируется (только его содержимое)
   - field: "documents[origin.name ~ /архив\\.zip/i]"
     kind: "not present"
+
+  # Большая фикстура обязана быть проиндексирована и получить зеркало
+  - field: "documents[origin.name == 'большой-договор.pdf']"
+    kind: "present exactly once"
+  - field: "documents[origin.name == 'большой-договор.pdf'].mirror"
+    kind: "matches /^\\.vassal/mirrors/doc-\\d+\\.md$/"
 
   # Документы, объединённые в комплект (если Codex их так классифицировал),
   # должны иметь bundle_id и role_in_bundle; приложения — также parent_id

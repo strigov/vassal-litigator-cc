@@ -28,6 +28,12 @@ Smoke-тест `intake` охватывает:
 - хронологическую раскладку «Материалы от клиента/» (одиночные файлы без папки, комплекты в папках `ГГГГ-ММ-ДД Отправитель Описание/`, сироты в `Без даты — <Тема>/`)
 - распаковку архивов (`архив.zip` не в индексе, его содержимое проиндексировано с `origin.archive_src`)
 - конверсию изображений в PDF (`скан.jpg` → PDF, оригинал только в `.vassal/raw/`)
+- полнотекстовую сверку md-зеркала на большой фикстуре через повторное извлечение текста
+
+Smoke-тесты `add-evidence`, `add-opponent`, `update-index` дополнительно проверяют:
+- что новые и пересобранные зеркала проходят полнотекстовую сверку через `scripts/extract_text.py`
+- что рабочие `plans/` и `work/` каталоги очищаются после apply
+- что логи попадают в `.vassal/codex-logs/`
 
 ## Структура
 
@@ -40,11 +46,17 @@ tests/
 │       │   ├── претензия.pdf
 │       │   ├── скан.jpg
 │       │   └── архив.zip
+│       ├── _sources/
+│       │   └── большой-договор.txt
 │       ├── case-initial.yaml
 │       └── expected/
 │           ├── index-after-intake.yaml   # _check-контракт структуры
 │           └── history-entry.md          # ожидаемые строки в history.md
 └── smoke/
+    ├── _fulltext_common.sh
+    ├── test-add-evidence.sh
+    ├── test-add-opponent.sh
+    ├── test-update-index.sh
     ├── test-intake.sh
     ├── test-catalog.sh
     ├── test-timeline.sh
@@ -65,6 +77,9 @@ cd /tmp
 PLUGIN_ROOT=/path/to/vassal-litigator-cc
 
 bash "$PLUGIN_ROOT/tests/smoke/test-intake.sh" "$PLUGIN_ROOT"
+bash "$PLUGIN_ROOT/tests/smoke/test-add-evidence.sh" "$PLUGIN_ROOT"
+bash "$PLUGIN_ROOT/tests/smoke/test-add-opponent.sh" "$PLUGIN_ROOT"
+bash "$PLUGIN_ROOT/tests/smoke/test-update-index.sh" "$PLUGIN_ROOT"
 bash "$PLUGIN_ROOT/tests/smoke/test-catalog.sh" "$PLUGIN_ROOT"
 bash "$PLUGIN_ROOT/tests/smoke/test-timeline.sh" "$PLUGIN_ROOT"
 bash "$PLUGIN_ROOT/tests/smoke/test-analytical-review.sh" "$PLUGIN_ROOT"
@@ -85,15 +100,17 @@ bash "$PLUGIN_ROOT/tests/smoke/test-analytical-review.sh" "$PLUGIN_ROOT"
 - `претензия.pdf` — stub-PDF претензии
 - `скан.jpg` — stub-JPEG для OCR-проверки (apply-фаза конвертирует в PDF)
 - `архив.zip` — архив с `акт.pdf` и `платёжка.pdf` (apply-фаза распаковывает, содержимое индексирует с `origin.archive_src = "архив"`)
+- `_sources/большой-договор.txt` — большой текстовый источник для генерации полнотекстовой PDF-фикстуры в smoke-сценариях
 
 ## Сверка ожидаемого результата
 
 `expected/index-after-intake.yaml` — не эталонный index, а **контракт на структуру**: список инвариантов (`_check:`), которые проверяются в smoke-скрипте:
 
-- `version: 2`, `next_id >= 6`
+- `version: 2`, `next_id >= 7`
 - `source: client`, `origin.batch` начинается с `intake-`
 - `архив.zip` НЕ присутствует в `documents` (только его содержимое)
 - `скан.*` имеет `file`, оканчивающийся на `.pdf`
+- `большой-договор.pdf` присутствует в `documents` и имеет `mirror`
 - для `role_in_bundle == "attachment"` обязательны `parent_id` и `attachment_order`
 - для `needs_manual_review == true` путь файла начинается с `Материалы от клиента/Без даты — `
 

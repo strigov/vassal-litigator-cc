@@ -1,7 +1,7 @@
 ---
 slug: mirror-full-text
 created: 2026-04-22
-status: in-progress
+status: done
 phases:
   - id: Ф1
     scope: "Единый контракт зеркала: обновить shared/mirror-template.md (убрать правило усечения, зафиксировать полнотекстовость)"
@@ -17,7 +17,7 @@ phases:
     status: done
   - id: Ф5
     scope: "Сверка ARCHITECTURE.md, tests/, scripts/, smoke-сценариев с новым контрактом"
-    status: in-progress
+    status: done
 ---
 
 ## Goal
