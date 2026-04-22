@@ -5,13 +5,13 @@ status: in-progress
 phases:
   - id: Ф1
     scope: "Единый контракт зеркала: обновить shared/mirror-template.md (убрать правило усечения, зафиксировать полнотекстовость)"
-    status: in-progress
+    status: done
   - id: Ф2
     scope: "Apply-фазы файловых скиллов (intake/add-evidence/add-opponent): тело зеркала = полный OCR-файл"
-    status: pending
+    status: done
   - id: Ф3
     scope: "Plan-фазы файловых скиллов: убрать требование фиксировать первые 20000 символов, перейти к ссылке на полный OCR-артефакт"
-    status: pending
+    status: in-progress
   - id: Ф4
     scope: "update-index: оба сценария (создание и перегенерация зеркала) используют полный текст"
     status: pending

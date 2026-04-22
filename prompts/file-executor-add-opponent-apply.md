@@ -47,7 +47,7 @@
    Для каждой новой записи плана (не пропущенной):
    - Шаблон `[PLUGIN_ROOT]/shared/mirror-template.md`.
    - Frontmatter: `id`, `title`, `date`, `doc_type`, `parties`, `source_file` (финальный путь), `origin_name`, `intake_batch` (=`{{batch_name}}`), `extraction_method`, `confidence`, `bundle_id`, `role_in_bundle` (`head`/`attachment`), `attachment_of` (для приложений), `needs_manual_review`, `source: opponent`.
-   - Тело — OCR из `{{work_dir}}/ocr/<имя>.txt` (10 страниц / 20000 символов).
+   - Тело — полный OCR из `{{work_dir}}/ocr/<stem>.txt` (`stem` = имя исходного файла без расширения). Усечение запрещено. Если OCR-артефакт отсутствует — оставь тело зеркала пустым (текущее поведение при неудачном OCR). Известное ограничение: одинаковый `stem` у двух файлов в batch — коллизия OCR-артефакта, предсуществующее поведение.
    - Путь: `.vassal/mirrors/doc-NNN.md`.
 
 5. Размещение файлов.
