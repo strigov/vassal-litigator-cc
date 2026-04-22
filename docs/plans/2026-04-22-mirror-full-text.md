@@ -14,10 +14,10 @@ phases:
     status: done
   - id: Ф4
     scope: "update-index: оба сценария (создание и перегенерация зеркала) используют полный текст"
-    status: in-progress
+    status: done
   - id: Ф5
     scope: "Сверка ARCHITECTURE.md, tests/, scripts/, smoke-сценариев с новым контрактом"
-    status: pending
+    status: in-progress
 ---
 
 ## Goal

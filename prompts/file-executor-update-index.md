@@ -20,10 +20,8 @@
 Режим A — Добавить новые файлы.
 
 1. Получи список новых файлов из `{{plan_body}}`. Если список отсутствует, неполон или противоречив, остановись со статусом `NEEDS_CONTEXT`.
-2. Для каждого нового файла запусти OCR и извлечение текста:
-   `python3 [PLUGIN_ROOT]/scripts/extract_text.py --file "путь_к_файлу" --output "путь_к_tmp"`
-   Зафиксируй `extraction_method` и `confidence`.
-3. Назначь ID строго из `next_id` в `.vassal/index.yaml`. Создай md-зеркало в `.vassal/mirrors/doc-{NNN}.md` по шаблону `[PLUGIN_ROOT]/shared/mirror-template.md` с полным frontmatter: `id`, `title`, `date`, `doc_type`, `parties`, `source_file`, `origin_name`, `intake_batch` (используй `update-index-{ГГГГ-ММ-ДД}`), `extraction_method`, `confidence`. Тело зеркала — извлечённый текст (первые 20000 символов). Затем добавь запись в `.vassal/index.yaml` с полями: `id`, `title`, `date`, `doc_type`, `parties`, `file`, `mirror`, `origin` (`name`+`date`+`batch`), `extraction_method`, `confidence`, `needs_manual_review` (true если confidence < 0.7), `mirror_stale: false`. Обнови `next_id`. Не назначай ID вне диапазона, который следует из текущего индекса и плана.
+2. Для каждого нового файла создай self-contained временную директорию командой `mktemp -d -t vassal-reindex-XXXXXX`, запусти OCR и извлечение текста командой `python3 [PLUGIN_ROOT]/scripts/extract_text.py "путь_к_файлу" --output-dir "$TMP_DIR"`, затем прочитай полный OCR-артефакт `"$TMP_DIR/<stem>.txt"` целиком. Зафиксируй `extraction_method` и `confidence`. Если `extract_text.py` не создал `.txt` (например, `extraction_method=none` или текст пуст), считай тело зеркала пустым. После записи зеркала обязательно выполни `rm -rf "$TMP_DIR"`.
+3. Назначь ID строго из `next_id` в `.vassal/index.yaml`. Создай md-зеркало в `.vassal/mirrors/doc-{NNN}.md` по шаблону `[PLUGIN_ROOT]/shared/mirror-template.md` с полным frontmatter: `id`, `title`, `date`, `doc_type`, `parties`, `source_file`, `origin_name`, `intake_batch` (используй `update-index-{ГГГГ-ММ-ДД}`), `extraction_method`, `confidence`. Тело зеркала — полный извлечённый текст из `"$TMP_DIR/<stem>.txt"` без усечения по страницам или символам. Затем добавь запись в `.vassal/index.yaml` с полями: `id`, `title`, `date`, `doc_type`, `parties`, `file`, `mirror`, `origin` (`name`+`date`+`batch`), `extraction_method`, `confidence`, `needs_manual_review` (true если confidence < 0.7), `mirror_stale: false`. Обнови `next_id`. Не назначай ID вне диапазона, который следует из текущего индекса и плана.
 4. После завершения режима A выполни YAML-валидацию:
    `python3 -c "import yaml; yaml.safe_load(open('.vassal/index.yaml'))"`
 
@@ -37,7 +35,7 @@
 Режим C — Пересоздать устаревшие зеркала.
 
 1. Получи из `{{plan_body}}` список `doc-ID` с устаревшими зеркалами. Если список неполон или нельзя однозначно сопоставить `doc-ID` и исходный файл, остановись со статусом `NEEDS_CONTEXT`.
-2. Для каждого `doc-ID`: прочитай связанный файл, запусти OCR через `python3 [PLUGIN_ROOT]/scripts/extract_text.py`, затем перезапиши `.vassal/mirrors/doc-NNN.md` по шаблону `[PLUGIN_ROOT]/shared/mirror-template.md` — frontmatter тот же, что при создании, тело = актуальный текст (первые 20000 символов).
+2. Для каждого `doc-ID`: прочитай связанный файл, создай self-contained временную директорию командой `mktemp -d -t vassal-reindex-XXXXXX`, запусти OCR через `python3 [PLUGIN_ROOT]/scripts/extract_text.py "путь_к_файлу" --output-dir "$TMP_DIR"`, затем прочитай полный OCR-артефакт `"$TMP_DIR/<stem>.txt"` целиком и перезапиши `.vassal/mirrors/doc-NNN.md` по шаблону `[PLUGIN_ROOT]/shared/mirror-template.md` — frontmatter тот же, что при создании, тело = актуальный полный текст без усечения по страницам или символам. Если `.txt` не создан, тело зеркала оставь пустым. После записи зеркала обязательно выполни `rm -rf "$TMP_DIR"`.
 3. После пересоздания зеркала обнови в соответствующей записи `.vassal/index.yaml` поля `last_verified` (текущая дата) и `mirror_stale: false`.
 
 Общая дисциплина исполнения:
