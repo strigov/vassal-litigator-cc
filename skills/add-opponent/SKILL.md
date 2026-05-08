@@ -9,7 +9,7 @@ description: >
 
 # add-opponent — Приём документов оппонента
 
-Скилл работает по контракту **plan → review → (revise) → apply → verify → (анализ Opus)**. Файловую работу — OCR, распаковку, классификацию, раскладку в процессуальную папку — делает Codex medium. Claude-main промпты собирает и план показывает. Экспресс-анализ аргументов оппонента (Фаза 5) делается отдельно Opus-субагентом после apply — это не файловая работа.
+Скилл работает по контракту **plan → review → (revise) → apply → verify → (анализ Opus)**. Файловую работу — OCR, распаковку, классификацию, раскладку в процессуальную папку — делает Codex medium; plan-фаза вызывает `scripts/prepare_intake_workdir.py` и работает с его JSON `files[]`. Claude-main промпты собирает и план показывает. Экспресс-анализ аргументов оппонента (Фаза 5) делается отдельно Opus-субагентом после apply — это не файловая работа.
 
 ## Предусловия
 
@@ -42,7 +42,7 @@ description: >
 3. `grep -c "{{" <prompt>` → `0`.
 4. Диспатч без `--write`: `task --background --effort medium "..."`.
 5. Мониторь по шаблону `until/case loop` с `sleep 25`.
-6. Получи отчёт. Проверь: статус `DONE`/`DONE_WITH_CONCERNS`, файл `{{plan_path}}` непустой, поля `OPPONENT_PARTY`, `DOC_TYPE_HEAD`, `FILES_PLANNED`, `ATTACHMENTS_PLANNED` присутствуют.
+6. Получи отчёт. Проверь: статус `DONE`/`DONE_WITH_CONCERNS`, файл `{{plan_path}}` непустой, поля `WORK_DIR`, `OPPONENT_PARTY`, `DOC_TYPE_HEAD`, `FILES_PLANNED`, `ATTACHMENTS_PLANNED` присутствуют, а в `{{work_dir}}/00-prep.json` есть JSON от `prepare_intake_workdir.py`.
 7. `BLOCKED` / `NEEDS_CONTEXT` — покажи Сюзерену `CONCERNS`, спроси действия. Типичный блокер add-opponent — «поставка без головного документа»: тогда предложи Сюзерену либо вручную обозначить голову, либо вернуть поставку.
 
 ## Фаза 2 — Review Сюзереном
@@ -81,6 +81,7 @@ description: >
    - `PLAN_ARCHIVED` — путь в `.vassal/codex-logs/` существует
    - `{{plan_path}}` обнулён
 2. Прочитай `.vassal/index.yaml`: новые записи имеют `source: opponent`, корректные `bundle_id`/`role_in_bundle`/`parent_id`.
+   Для каждой новой записи проверь наличие `ocr_quality` и `ocr_quality_reason`; они должны быть рассчитаны через `classify_ocr_quality.py`, а `needs_manual_review` должен соответствовать правилу `ocr_quality != "ok"`.
 3. Сохрани лог сессии `.vassal/codex-logs/<plan_timestamp>-add-opponent-session.md`: промпт plan + отчёт plan + промпт apply + отчёт apply.
 4. Финальное резюме Сюзерену: `Поставка от <оппонент>: <тип документа>, N приложений, процессуальная папка <...>, needs_manual_review: X`.
 

@@ -12,7 +12,7 @@ description: >
 
 # Intake — Приём материалов клиента
 
-Скилл работает по контракту **plan → review → (revise) → apply → verify**. Всю черновую работу (чтение исходников, OCR, распаковка архивов, классификацию, построение раскладки) делает Codex medium. Claude-main только собирает промпты, показывает Сюзерену план и верифицирует отчёт — **никогда** не читает исходники клиента, не запускает OCR и не предлагает имена/doc-ID/bundle_id.
+Скилл работает по контракту **plan → review → (revise) → apply → verify**. Всю черновую работу (чтение исходников, OCR, распаковка архивов, классификацию, построение раскладки) делает Codex medium; plan-фаза вызывает `scripts/prepare_intake_workdir.py` и работает с его JSON `files[]`. Claude-main только собирает промпты, показывает Сюзерену план и верифицирует отчёт — **никогда** не читает исходники клиента, не запускает OCR и не предлагает имена/doc-ID/bundle_id.
 
 ## Предусловия
 
@@ -54,8 +54,9 @@ Claude-main собирает промпт и диспатчит plan-фазу. *
 5. Мониторь до `status: completed` по шаблону `until/case loop` из `skills/codex-invocation/SKILL.md` с `sleep 25`.
 6. Получи отчёт. Убедись:
    - статус на первой строке — `DONE` или `DONE_WITH_CONCERNS`
-   - в отчёте присутствуют поля `PLAN_PATH`, `FILES_PLANNED`, `BUNDLES_PLANNED`, `ORPHANS_PLANNED`
+   - в отчёте присутствуют поля `PLAN_PATH`, `WORK_DIR`, `FILES_PLANNED`, `BUNDLES_PLANNED`, `ORPHANS_PLANNED`
    - файл `{{plan_path}}` существует и не пустой
+   - в `{{work_dir}}/00-prep.json` есть JSON от `prepare_intake_workdir.py`, а plan-фаза использовала `files[]` из него
 7. Если статус `BLOCKED` / `NEEDS_CONTEXT` — покажи Сюзерену секцию `CONCERNS / BLOCKERS` и спроси, что делать (повторить, дать доп. контекст, отменить intake).
 
 ## Фаза 2 — Review Сюзереном
@@ -100,6 +101,7 @@ Claude-main собирает промпт и диспатчит plan-фазу. *
    - `PLAN_ARCHIVED` указывает реальный путь в `.vassal/codex-logs/`
    - `{{plan_path}}` обнулён (`wc -c` = 0)
 2. Прочитай `.vassal/index.yaml`, убедись, что новые записи имеют все обязательные поля (см. `shared/index-schema.yaml`).
+   Для каждой новой записи проверь наличие `ocr_quality` и `ocr_quality_reason`; они должны быть рассчитаны через `classify_ocr_quality.py`, а `needs_manual_review` должен соответствовать правилу `ocr_quality != "ok"`.
 3. Если в `Входящие документы/` остались файлы, которых не было в плане, — Codex сохранил их корректно; если остались файлы **из** плана (Codex не обнулил) — это аномалия, покажи Сюзерену.
 4. Сохрани лог сессии: `.vassal/codex-logs/<plan_timestamp>-intake-session.md` — промпт plan + отчёт plan + промпт apply + отчёт apply. (Копия самого плана уже сохранена Codex-ом как `<plan_timestamp>-intake-plan.md` на шаге 9 apply.)
 5. Покажи Сюзерену финальное резюме: `N файлов обработано, M комплектов, S сирот, K изображений → PDF. needs_manual_review: X`.

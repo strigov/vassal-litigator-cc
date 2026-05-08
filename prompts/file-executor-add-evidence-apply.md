@@ -33,6 +33,8 @@
    Загрузи `[CASE_ROOT]/{{plan_path}}`. Извлеки таблицу, список новых комплектов, список присоединений к существующим, сирот, конверсии изображений, список не обработанных архивов, список пропущенных, `next_id`.
    Если в плане есть `doc-ID`, пересекающиеся с уже записанными в `.vassal/index.yaml`, или есть противоречия в присоединениях к существующим комплектам — `BLOCKED`.
 
+   Затем загрузи `[CASE_ROOT]/{{work_dir}}/00-prep.json`. Для каждого исходного файла из плана найди запись `files[]` с тем же `source_path` и бери из неё `ocr_artifact_path`, `extraction_method`, `confidence`, `total_chars`, `pages`. Если для новой индексируемой записи нет соответствия в `00-prep.json`, останови apply со статусом `BLOCKED`.
+
 2. Копирование оригиналов в raw.
    Создай `[CASE_ROOT]/.vassal/raw/evidence-ГГГГ-ММ-ДД/` (дата из `batch_name`).
    Для каждого исходного файла (включая содержимое архивов) выполни `cp "<исходный путь>" "[CASE_ROOT]/.vassal/raw/evidence-ГГГГ-ММ-ДД/<исходное имя>"`. Для файлов из архивов префиксуй `<архив-без-расш>__` для избежания коллизий. Архив-оригинал копируется туда же.
@@ -47,7 +49,8 @@
    Для каждой новой записи плана (не пропущенной):
    - Шаблон `[PLUGIN_ROOT]/shared/mirror-template.md`.
    - Frontmatter: `id`, `title`, `date`, `doc_type`, `parties`, `source_file` (финальный путь), `origin_name`, `intake_batch` (=`{{batch_name}}`), `extraction_method`, `confidence`, `bundle_id`, `role_in_bundle` (`head`/`attachment`/отсутствует), `attachment_of` (для приложений), `needs_manual_review`, `source: client`.
-   - Тело — полный OCR-текст из `{{work_dir}}/ocr/<stem>.txt` (`stem` = имя исходного файла без расширения). Усечение запрещено. Если OCR-артефакт отсутствует — оставь тело зеркала пустым (текущее поведение при неудачном OCR). Известное ограничение: одинаковый `stem` у двух файлов в batch — коллизия OCR-артефакта, предсуществующее поведение.
+   - `extraction_method` и `confidence` бери из найденной записи `00-prep.json`, совпавшей по `source_path`.
+   - Тело — полный OCR-текст из `ocr_artifact_path` найденной записи `00-prep.json`. Усечение запрещено. Если `ocr_artifact_path` пустой/null или файл не существует — оставь тело зеркала пустым (текущее поведение при неудачном OCR). Не читай OCR по старому пути `{{work_dir}}/ocr/<stem>.txt`.
    - Путь: `[CASE_ROOT]/.vassal/mirrors/doc-NNN.md`.
 
 5. Раскладка в `Материалы от клиента/`.
@@ -79,13 +82,21 @@
        archive_src: "<архив-без-расш>"   # если из архива
      extraction_method: <...>
      confidence: 0.xx
+     ocr_quality: ok|low|empty
+     ocr_quality_reason: "<строка из classify_ocr_quality.py>"
      bundle_id: bundle-NNN             # новый или существующий
      role_in_bundle: head|attachment
      parent_id: doc-NNN                # для attachment
      attachment_order: N               # для attachment — продолжай нумерацию существующих
-     needs_manual_review: <bool>
+     needs_manual_review: <bool>        # true если ocr_quality != "ok"
      mirror_stale: false
    ```
+   Для каждой новой записи рассчитай качество OCR детерминированно:
+   ```
+   python3 "[PLUGIN_ROOT]/scripts/classify_ocr_quality.py" --extraction-method "<extraction_method>" --confidence "<confidence>" --total-chars "<total_chars>" --pages "<pages>"
+   ```
+   `extraction_method`, `confidence`, `total_chars`, `pages` бери из найденной записи `00-prep.json`, совпавшей по `source_path`. Подставь `ocr_quality` и `ocr_quality_reason` напрямую из JSON-ответа скрипта. Поле `needs_manual_review` вычисляй локально по правилу `ocr_quality != "ok"`. Не используй старую эвристику по одному порогу confidence.
+
    Обнови `next_id` из плана.
    Валидация:
    `python3 -c "import yaml; d=yaml.safe_load(open('[CASE_ROOT]/.vassal/index.yaml')); print('OK:', len(d.get('documents', [])), 'records')"`

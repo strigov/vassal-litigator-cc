@@ -50,6 +50,8 @@ pip install --break-system-packages -q \
     openpyxl \
     python-docx \
     pymupdf \
+    pillow \
+    reportlab \
     2>/dev/null || echo "⚠️  Некоторые пакеты не удалось установить."
 
 # 3. Проверка
@@ -82,6 +84,8 @@ check_py yaml
 check_py openpyxl
 check_py docx
 check_py fitz  # pymupdf (используется extract_text.py и image_to_pdf.py)
+check_py PIL   # Pillow
+check_py reportlab
 
 echo ""
 echo "=== Готово ==="

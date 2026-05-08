@@ -1,3 +1,11 @@
+## [Unreleased]
+
+### Изменено
+
+- Перенесены deterministic-скрипты `prepare_intake_workdir.py`, `scan_case_state.py`, `classify_ocr_quality.py` из reference-плагина.
+- Plan-фазы `intake`, `add-evidence`, `add-opponent` используют JSON `prepare_intake_workdir.py` вместо ручной распаковки/OCR/обхода inbox.
+- `update-index` preview строится через `scan_case_state.py`, а OCR quality в apply/verify считается через единый `classify_ocr_quality.py`.
+
 ## [vassal-litigator-cc] v1.0.0 -- 2026-04-22
 
 Первый релиз cc-edition — форк `vassal-litigator` v0.5.4 (Cowork edition), адаптированный под нативную установку в Claude Code через маркетплейс `strigov-cc-plugins`.

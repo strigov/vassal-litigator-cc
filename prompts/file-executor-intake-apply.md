@@ -48,6 +48,8 @@
 
    Если план противоречив, неполный или содержит `doc-ID`, пересекающиеся с уже записанными в `.vassal/index.yaml` — останови apply со статусом `BLOCKED` и не меняй файлы дела.
 
+   Затем загрузи `[CASE_ROOT]/{{work_dir}}/00-prep.json`. Для каждого исходного файла из плана найди запись `files[]` с тем же `source_path` и бери из неё `ocr_artifact_path`, `extraction_method`, `confidence`, `total_chars`, `pages`. Если для индексируемого файла нет записи в `00-prep.json`, останови apply со статусом `BLOCKED`.
+
 2. Копирование оригиналов в raw.
    Создай директорию `[CASE_ROOT]/.vassal/raw/intake-ГГГГ-ММ-ДД/` (дата берётся из `batch_name`).
    Для каждого исходного файла из плана (включая файлы, извлечённые из архивов в `{{work_dir}}/archives/`, и архивы-оригиналы) выполни:
@@ -69,7 +71,8 @@
    Для каждой записи плана с назначенным `doc-ID`:
    - Загрузи шаблон `[PLUGIN_ROOT]/shared/mirror-template.md`.
    - Подставь frontmatter: `id`, `title`, `date`, `doc_type`, `parties`, `source_file` (финальный путь в `Материалы от клиента/...`), `origin_name`, `intake_batch`, `extraction_method`, `confidence`, `bundle_id` (если член комплекта или сам комплект), `role_in_bundle` (`head`/`attachment`/отсутствует), `attachment_of` (ID головного документа для приложений), `needs_manual_review`.
-   - Тело зеркала — полный текст из `{{work_dir}}/ocr/<stem>.txt`, где `<stem>` — имя исходного файла без расширения (например `договор.pdf` → `{{work_dir}}/ocr/договор.txt`). Усечение по страницам или символам запрещено: зеркало полнотекстовое независимо от размера документа. Если OCR-артефакт отсутствует (`extraction_method=none` или файл не создан из-за пустого результата OCR) — оставь тело зеркала пустым; это текущее поведение при неудачном OCR, данный ТЗ его не меняет. Известное ограничение: два файла с одинаковым именем без расширения в одном batch перетрут OCR-артефакт друг друга — предсуществующее поведение `extract_text.py`.
+   - `extraction_method` и `confidence` бери из найденной записи `00-prep.json`, совпавшей по `source_path`.
+   - Тело зеркала — полный текст из `ocr_artifact_path` найденной записи `00-prep.json`. Усечение по страницам или символам запрещено: зеркало полнотекстовое независимо от размера документа. Если `ocr_artifact_path` пустой/null или файл не существует (`extraction_method=none` или пустой результат OCR) — оставь тело зеркала пустым; это текущее поведение при неудачном OCR, данный ТЗ его не меняет. Не читай OCR по старому пути `{{work_dir}}/ocr/<stem>.txt`.
    - Записать как `[CASE_ROOT]/.vassal/mirrors/doc-NNN.md` (с ведущими нулями до трёх разрядов).
 
 5. Раскладка в `Материалы от клиента/`.
@@ -101,13 +104,21 @@
        archive_src: "<имя-архива-без-расш>"   # только если файл извлечён из архива
      extraction_method: <pdf_text | tesseract | ...>
      confidence: 0.xx
+     ocr_quality: ok|low|empty
+     ocr_quality_reason: "<строка из classify_ocr_quality.py>"
      bundle_id: bundle-NNN             # только для членов комплекта
      role_in_bundle: head|attachment   # только для членов комплекта
      parent_id: doc-NNN                # только для attachment — ID головного
      attachment_order: N               # только для attachment — порядковый номер
-     needs_manual_review: <bool>
+     needs_manual_review: <bool>        # true если ocr_quality != "ok"
      mirror_stale: false
    ```
+   Для каждой новой записи рассчитай качество OCR детерминированно:
+   ```
+   python3 "[PLUGIN_ROOT]/scripts/classify_ocr_quality.py" --extraction-method "<extraction_method>" --confidence "<confidence>" --total-chars "<total_chars>" --pages "<pages>"
+   ```
+   `extraction_method`, `confidence`, `total_chars`, `pages` бери из найденной записи `00-prep.json`, совпавшей по `source_path`. Подставь `ocr_quality` и `ocr_quality_reason` напрямую из JSON-ответа скрипта. Поле `needs_manual_review` вычисляй локально по правилу `ocr_quality != "ok"`. Не используй старую эвристику по одному порогу confidence.
+
    Обнови `next_id` = значение из «Общей сводки» плана.
    После всех правок выполни:
    ```

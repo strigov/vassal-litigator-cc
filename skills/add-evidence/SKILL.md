@@ -9,7 +9,7 @@ description: >
 
 # add-evidence — Приём дополнительных доказательств
 
-Скилл работает по контракту **plan → review → (revise) → apply → verify**. Всю черновую работу (чтение исходников, OCR, распаковка архивов, классификацию, встраивание в существующую хронологию) делает Codex medium. Claude-main промпты собирает и план показывает — **не читает** исходники клиента, не запускает OCR и не предлагает имена/doc-ID/bundle_id.
+Скилл работает по контракту **plan → review → (revise) → apply → verify**. Всю черновую работу (чтение исходников, OCR, распаковка архивов, классификацию, встраивание в существующую хронологию) делает Codex medium; plan-фаза вызывает `scripts/prepare_intake_workdir.py` и работает с его JSON `files[]`. Claude-main промпты собирает и план показывает — **не читает** исходники клиента, не запускает OCR и не предлагает имена/doc-ID/bundle_id.
 
 ## Предусловия
 
@@ -42,7 +42,7 @@ description: >
 3. `grep -c "{{" <prompt>` → `0`.
 4. Диспатч без `--write`: `task --background --effort medium "..."`.
 5. Мониторь до `completed` по шаблону из `skills/codex-invocation/SKILL.md` с `sleep 25`.
-6. Получи отчёт. Проверь наличие `PLAN_PATH`, `FILES_PLANNED`, `BUNDLES_NEW`, `BUNDLES_ATTACHED`, `ORPHANS_PLANNED`, `FILES_SKIPPED`, файл `{{plan_path}}` непустой.
+6. Получи отчёт. Проверь наличие `PLAN_PATH`, `WORK_DIR`, `FILES_PLANNED`, `BUNDLES_NEW`, `BUNDLES_ATTACHED`, `ORPHANS_PLANNED`, `FILES_SKIPPED`, файл `{{plan_path}}` непустой, а в `{{work_dir}}/00-prep.json` есть JSON от `prepare_intake_workdir.py`.
 7. `BLOCKED` / `NEEDS_CONTEXT` → покажи Сюзерену `CONCERNS`, спроси, что делать.
 
 ## Фаза 2 — Review Сюзереном
@@ -82,6 +82,7 @@ description: >
    - `PLAN_ARCHIVED` указывает реальный путь в `.vassal/codex-logs/`
    - `{{plan_path}}` обнулён
 2. Прочитай `.vassal/index.yaml`: новые записи имеют `source: client`, корректные `bundle_id`/`role_in_bundle`/`parent_id`.
+   Для каждой новой записи проверь наличие `ocr_quality` и `ocr_quality_reason`; они должны быть рассчитаны через `classify_ocr_quality.py`, а `needs_manual_review` должен соответствовать правилу `ocr_quality != "ok"`.
 3. Если в `Входящие документы/` остались файлы из плана — аномалия, покажи Сюзерену.
 4. Сохрани лог сессии `.vassal/codex-logs/<plan_timestamp>-add-evidence-session.md`: промпт plan + отчёт plan + промпт apply + отчёт apply.
 5. Финальное резюме Сюзерену: `N новых записей, M новых комплектов, J присоединений, S сирот, K изображений → PDF, D пропущено. needs_manual_review: X`.
