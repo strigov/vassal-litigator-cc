@@ -1,0 +1,39 @@
+batch: __BATCH__
+source_inbox: __SOURCE_INBOX__
+work_dir: __WORK_DIR__
+raw_dest: __RAW_DEST__
+next_id_start: 1
+next_bundle_id_start: 1
+raw_only: []
+skipped: []
+cleanup_set:
+  - __SOURCE_FILE__
+bundles: []
+items:
+  - source_path: __SOURCE_FILE__
+    grouped_inputs: null
+    archive_src: null
+    target_file: __TARGET_FILE__
+    convert_image_to_pdf: false
+    ocr_artifacts:
+      - path: __TEXT_FILE__
+        extraction_method: pdf-text
+        confidence: high
+        pages: 1
+        total_chars: 19
+    combined_text_path: __TEXT_FILE__
+    doc_id: doc-001
+    title: Договор
+    type: договор
+    date: "2026-05-05"
+    source: client
+    origin:
+      name: contract.pdf
+      date: "2026-05-05"
+      received: "2026-05-05"
+      batch: __BATCH__
+      archive_src: null
+    bundle_id: null
+    role_in_bundle: null
+    parent_id: null
+    attachment_order: null

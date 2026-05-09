@@ -8,10 +8,10 @@ phases:
     status: done
   - id: Ф2
     scope: "Машинно-читаемый plan.yaml в plan-фазе и детерминированный apply через apply_intake_plan.py для intake/add-evidence/add-opponent"
-    status: in-progress
+    status: done
   - id: Ф3
     scope: "Сокращение update-index apply-промпта: scan_case_state в preview, скрипт-обёртка для extract+classify, упрощение апплая до перечня операций"
-    status: pending
+    status: in-progress
 ---
 
 ## Goal

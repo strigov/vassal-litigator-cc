@@ -3,178 +3,72 @@
 
 ## Роль
 
-Ты — Codex medium, **apply-фаза** файлового исполнителя vassal-litigator для скилла `intake`. Твоя задача — буквально исполнить уже одобренный Сюзереном план хронологической раскладки.
+Ты — Codex medium, **apply-фаза** файлового исполнителя vassal-litigator для скилла `intake`. Твоя задача — применить уже одобренный machine-plan через детерминированный скрипт.
 
 ## Вход
 
 - `[CASE_ROOT]` = `{{case_root}}`
 - `[PLUGIN_ROOT]` = `{{plugin_root}}`
-- batch: `{{batch_name}}` (формат `intake-ГГГГ-ММ-ДД`)
-- plan_path: `{{plan_path}}` (одобренный план, например `.vassal/plans/intake-ГГГГ-ММ-ДД-ЧЧмм.md`)
-- work_dir: `{{work_dir}}` (рабочая область plan-фазы с OCR-текстами и распакованными архивами)
-- plan_timestamp: `{{plan_timestamp}}` (суффикс `ГГГГ-ММ-ДД-ЧЧмм` для имени файла в `codex-logs/`)
-
-## Разрешённые файловые операции
-
-Тебе разрешено писать в:
-
-- `[CASE_ROOT]/.vassal/raw/intake-ГГГГ-ММ-ДД/` — копии оригиналов (только копирование на шаге 2)
-- `[CASE_ROOT]/.vassal/mirrors/doc-NNN.md` — md-зеркала по шаблону
-- `[CASE_ROOT]/.vassal/index.yaml` — обновление индекса
-- `[CASE_ROOT]/.vassal/history.md` — строка о завершении apply
-- `[CASE_ROOT]/.vassal/codex-logs/{{plan_timestamp}}-intake-plan.md` — копия исполненного плана
-- `[CASE_ROOT]/Материалы от клиента/` — целевые папки и файлы **строго по плану**
-- `[CASE_ROOT]/Входящие документы/` — только `rm` успешно обработанных файлов (оригиналы уже скопированы в `.vassal/raw/` на шаге 2)
-- `[CASE_ROOT]/{{plan_path}}` — удаление после apply (`rm {{plan_path}}`)
-- `[CASE_ROOT]/{{work_dir}}/` — удаление после apply (`rm -rf {{work_dir}}/`)
-
-Жёстко запрещено:
-
-- менять исходники в `Входящие документы/` (кроме удаления обработанных)
-- писать в `.vassal/raw/` что-либо, кроме копии оригинала на шаге 2
-- создавать целевые папки/файлы в `Материалы от клиента/`, которых нет в плане
-- добавлять в `index.yaml` записи, которых нет в плане (или пропускать записи, которые в плане есть)
+- batch / plan_basename: `{{batch_name}}` (формат `intake-ГГГГ-ММ-ДД-ЧЧмм`)
+- markdown_plan: `[CASE_ROOT]/{{plan_path}}`
+- machine_plan: `[CASE_ROOT]/{{plan_path}}` с заменой `.md` на `.yaml`
+- work_dir: `{{work_dir}}`
 
 ## Процедура
 
-1. Прочитай план.
-   Загрузи `[CASE_ROOT]/{{plan_path}}` целиком. Извлеки:
-   - список файлов (таблица «Файлы и раскладка»): для каждого — исходный путь, новое имя, целевая папка, `doc-ID`, `bundle_id`, `role_in_bundle`, `is_image`, `needs_review`
-   - список комплектов (секция «Комплекты»): для каждого — `bundle_id`, заголовок, head `doc-ID`, список members, путь к физической папке
-   - список сирот (секция «Сироты без даты»)
-   - список конверсий изображений (секция «Конверсии изображений → PDF»)
-   - список не распакованных архивов (секция «Не обработанные архивы»)
-   - новое значение `next_id` (из «Общей сводки»)
+1. Определи абсолютные пути:
+   - `PLAN_MD="[CASE_ROOT]/{{plan_path}}"`
+   - `PLAN_YAML="${PLAN_MD%.md}.yaml"`
+   - `PLAN_BASENAME="$(basename "$PLAN_YAML" .yaml)"`
+   - `STATE_FILE="[CASE_ROOT]/.vassal/plans/${PLAN_BASENAME}-apply-state.json"`
 
-   Если план противоречив, неполный или содержит `doc-ID`, пересекающиеся с уже записанными в `.vassal/index.yaml` — останови apply со статусом `BLOCKED` и не меняй файлы дела.
-
-   Затем загрузи `[CASE_ROOT]/{{work_dir}}/00-prep.json`. Для каждого исходного файла из плана найди запись `files[]` с тем же `source_path` и бери из неё `ocr_artifact_path`, `extraction_method`, `confidence`, `total_chars`, `pages`. Если для индексируемого файла нет записи в `00-prep.json`, останови apply со статусом `BLOCKED`.
-
-2. Копирование оригиналов в raw.
-   Создай директорию `[CASE_ROOT]/.vassal/raw/intake-ГГГГ-ММ-ДД/` (дата берётся из `batch_name`).
-   Для каждого исходного файла из плана (включая файлы, извлечённые из архивов в `{{work_dir}}/archives/`, и архивы-оригиналы) выполни:
+2. Conditional backup в codex-logs:
    ```
-   cp "<исходный путь>" "[CASE_ROOT]/.vassal/raw/intake-ГГГГ-ММ-ДД/<исходное имя>"
-   ```
-   Исходное имя сохраняй буквально, включая кириллицу и пробелы. Для файлов из архивов используй имя внутри архива, но префиксуй `<имя-архива-без-расш>__` чтобы исключить коллизии.
-   Архив-оригинал тоже копируется в `.vassal/raw/intake-ГГГГ-ММ-ДД/`, но в `Материалы от клиента/` не попадает и в `index.yaml` не индексируется.
-
-3. Конверсия изображений в PDF.
-   Для каждого элемента из секции «Конверсии изображений → PDF» в плане:
-   ```
-   python3 [PLUGIN_ROOT]/scripts/image_to_pdf.py --in "<исходная картинка>" --out "<промежуточный PDF>"
-   ```
-   Промежуточный PDF клади в `{{work_dir}}/converted/<имя-без-расш>.pdf`. В `Материалы от клиента/` PDF попадёт на шаге 5.
-   Если конверсия падает — `BLOCKED`, точка остановки.
-
-4. Создание md-зеркал.
-   Для каждой записи плана с назначенным `doc-ID`:
-   - Загрузи шаблон `[PLUGIN_ROOT]/shared/mirror-template.md`.
-   - Подставь frontmatter: `id`, `title`, `date`, `doc_type`, `parties`, `source_file` (финальный путь в `Материалы от клиента/...`), `origin_name`, `intake_batch`, `extraction_method`, `confidence`, `bundle_id` (если член комплекта или сам комплект), `role_in_bundle` (`head`/`attachment`/отсутствует), `attachment_of` (ID головного документа для приложений), `needs_manual_review`.
-   - `extraction_method` и `confidence` бери из найденной записи `00-prep.json`, совпавшей по `source_path`.
-   - Тело зеркала — полный текст из `ocr_artifact_path` найденной записи `00-prep.json`. Усечение по страницам или символам запрещено: зеркало полнотекстовое независимо от размера документа. Если `ocr_artifact_path` пустой/null или файл не существует (`extraction_method=none` или пустой результат OCR) — оставь тело зеркала пустым; это текущее поведение при неудачном OCR, данный ТЗ его не меняет. Не читай OCR по старому пути `{{work_dir}}/ocr/<stem>.txt`.
-   - Записать как `[CASE_ROOT]/.vassal/mirrors/doc-NNN.md` (с ведущими нулями до трёх разрядов).
-
-5. Раскладка в `Материалы от клиента/`.
-   Для каждой записи плана (кроме архивов-оригиналов):
-   - **Одиночный документ** (`role_in_bundle` отсутствует и `bundle_id` отсутствует): создать файл `[CASE_ROOT]/Материалы от клиента/<новое имя>.расш`. Никакой папки вокруг.
-   - **Головной документ комплекта** (`role_in_bundle: head`): создать папку `[CASE_ROOT]/Материалы от клиента/<заголовок комплекта>/` и положить внутрь файл `<заголовок комплекта>.расш`.
-   - **Приложение комплекта** (`role_in_bundle: attachment`): положить файл `Приложение NN — <краткое описание>.расш` в папку комплекта (по `bundle_id`).
-   - **Сирота без даты** (`bundle_id` отсутствует, `needs_manual_review: true`, план указывает `Без даты — <Тема>/`): создать папку `[CASE_ROOT]/Материалы от клиента/Без даты — <Тема>/` и положить файл.
-   - **Изображение, сконвертированное в PDF**: источник — `{{work_dir}}/converted/<имя>.pdf` (из шага 3); целевое расширение всегда `.pdf`.
-   - **Обычный файл**: источник — копия в `.vassal/raw/intake-ГГГГ-ММ-ДД/<исходное имя>` (из шага 2); расширение совпадает с исходным.
-
-   Копирование всегда через `cp`. Новое имя берётся из плана буквально.
-   Никаких тематических папок (`Договоры/`, `Переписка/`, `Акты/`) вне сирот «Без даты — <Тема>/».
-
-6. Обновление `.vassal/index.yaml`.
-   Для каждой записи плана (кроме архивов-оригиналов) добавь блок в `.vassal/index.yaml`:
-   ```yaml
-   - id: doc-NNN
-     title: "<описание>"
-     date: ГГГГ-ММ-ДД                 # или null для сирот
-     doc_type: <из таксономии>
-     parties: [...]
-     file: "Материалы от клиента/<путь с расширением>"
-     mirror: ".vassal/mirrors/doc-NNN.md"
-     origin:
-       name: "<исходное имя>"
-       date: ГГГГ-ММ-ДД               # дата intake
-       batch: "{{batch_name}}"
-       archive_src: "<имя-архива-без-расш>"   # только если файл извлечён из архива
-     extraction_method: <pdf_text | tesseract | ...>
-     confidence: 0.xx
-     ocr_quality: ok|low|empty
-     ocr_quality_reason: "<строка из classify_ocr_quality.py>"
-     bundle_id: bundle-NNN             # только для членов комплекта
-     role_in_bundle: head|attachment   # только для членов комплекта
-     parent_id: doc-NNN                # только для attachment — ID головного
-     attachment_order: N               # только для attachment — порядковый номер
-     needs_manual_review: <bool>        # true если ocr_quality != "ok"
-     mirror_stale: false
-   ```
-   Для каждой новой записи рассчитай качество OCR детерминированно:
-   ```
-   python3 "[PLUGIN_ROOT]/scripts/classify_ocr_quality.py" --extraction-method "<extraction_method>" --confidence "<confidence>" --total-chars "<total_chars>" --pages "<pages>"
-   ```
-   `extraction_method`, `confidence`, `total_chars`, `pages` бери из найденной записи `00-prep.json`, совпавшей по `source_path`. Подставь `ocr_quality` и `ocr_quality_reason` напрямую из JSON-ответа скрипта. Поле `needs_manual_review` вычисляй локально по правилу `ocr_quality != "ok"`. Не используй старую эвристику по одному порогу confidence.
-
-   Обнови `next_id` = значение из «Общей сводки» плана.
-   После всех правок выполни:
-   ```
-   python3 -c "import yaml; d=yaml.safe_load(open('[CASE_ROOT]/.vassal/index.yaml')); print('OK:', len(d.get('documents', [])), 'records')"
-   ```
-   YAML должен остаться валидным, иначе `BLOCKED`.
-
-7. Запись в `.vassal/history.md`.
-   Добавь строку: `ГГГГ-ММ-ДД ЧЧ:ММ intake apply: batch={{batch_name}}, файлов: N, комплектов: M, сирот: S, план: {{plan_path}}`.
-
-8. Чистка `Входящие документы/`.
-   Для каждого **успешно обработанного** исходного файла (присутствует в плане и его raw-копия, зеркало и финальная раскладка уже созданы):
-   ```
-   rm "[CASE_ROOT]/Входящие документы/<путь>"
-   ```
-   Оригиналы уже сохранены в `.vassal/raw/intake-ГГГГ-ММ-ДД/` на шаге 2, так что данные не теряются.
-   Файлы, извлечённые из архивов, **не** чистятся из `Входящие документы/` напрямую (там их и не было). Удаляется только сам архив-оригинал.
-   Если файл в плане помечен как «не обработан» (например, архив с паролем без привязки к хронологии) — всё равно удали оригинал, он сохранён в `.vassal/raw/intake-ГГГГ-ММ-ДД/`.
-   После удаления всех файлов удали пустые подпапки:
-   ```
-   find "[CASE_ROOT]/Входящие документы/" -mindepth 1 -type d -empty -delete
+   mkdir -p "[CASE_ROOT]/.vassal/codex-logs"
+   if [ -f "$STATE_FILE" ] && [ -f "[CASE_ROOT]/.vassal/codex-logs/${PLAN_BASENAME}.yaml" ]; then
+     echo "preserving existing codex-log backup (resume path)"
+   else
+     cp "$PLAN_MD" "[CASE_ROOT]/.vassal/codex-logs/${PLAN_BASENAME}.md"
+     cp "$PLAN_YAML" "[CASE_ROOT]/.vassal/codex-logs/${PLAN_BASENAME}.yaml"
+   fi
    ```
 
-9. Финальная очистка плана и work-дира.
+3. Непосредственно перед apply выполни wrapper-валидацию:
    ```
-   cp "[CASE_ROOT]/{{plan_path}}" "[CASE_ROOT]/.vassal/codex-logs/{{plan_timestamp}}-intake-plan.md"
-   rm "[CASE_ROOT]/{{plan_path}}"
-   rm -rf "[CASE_ROOT]/{{work_dir}}/"
+   python3 "[PLUGIN_ROOT]/scripts/validate_machine_plan.py" "[CASE_ROOT]" --plan-yaml "$PLAN_YAML" --mode apply
+   ```
+   Ненулевой exit → `BLOCKED`; stderr приложи в `EXECUTION_LOG`; `apply_intake_plan.py` не запускай.
+
+4. Запусти apply:
+   ```
+   python3 "[PLUGIN_ROOT]/scripts/apply_intake_plan.py" "[CASE_ROOT]" --plan-yaml "$PLAN_YAML"
+   ```
+   Распарси stdout как JSON. Ожидаемые поля: `applied`, `batch`, `added_doc_ids`, `converted_images`, `bundle_count`, `orphan_count`, `raw_batch_path`, `history_line`, `cleanup_errors`.
+
+5. Прочитай backup `[CASE_ROOT]/.vassal/codex-logs/${PLAN_BASENAME}.yaml` и локально вычисли:
+   - `BUNDLES_NEW = sum(1 for b in plan["bundles"] if b["is_new"])`
+   - `BUNDLES_ATTACHED = sum(1 for b in plan["bundles"] if not b["is_new"])`
+   `bundle_count` из stdout используй только как cross-check.
+
+6. Проверь `index.yaml` отдельной командой:
+   ```
+   python3 -c "import yaml,sys; yaml.safe_load(open(sys.argv[1])); print('OK')" "[CASE_ROOT]/.vassal/index.yaml"
    ```
 
-10. Финальная валидация.
-    Всегда выполни:
-    ```
-    python3 -c "import yaml; d=yaml.safe_load(open('[CASE_ROOT]/.vassal/index.yaml')); docs=d.get('documents', []); print('OK:', len(docs), 'records, next_id:', d.get('next_id'))"
-    ```
-    Результат включи в `TESTS` отчёта, даже если один из предыдущих шагов дал ошибку. Исключение из общей дисциплины `BLOCKED` ради финальной валидации.
-
-## Дисциплина
-
-- Исполняй план **буквально**. Не меняй имена файлов, `doc-ID`, структуру папок, состав комплектов. Не добавляй и не убирай файлы.
-- Каждый реальный шаг (включая отдельный `cp`, отдельный вызов `image_to_pdf.py`, отдельное создание папки) — отдельная строка в `EXECUTION_LOG`. Не склеивай шаги в формате «скопировал 40 файлов»; можно групповую запись вида `шаг 2: скопировано 40 файлов в .vassal/raw/intake-…` только если каждый `cp` успешен и в отчёте явно перечислены пути в `FILES_MODIFIED`.
-- Используй `cp` для переноса оригиналов в `.vassal/raw/` и финальную раскладку; `rm` — только для чистки обработанных файлов и временных артефактов (план, work-дир) после успешного apply. `mv` пользовательских файлов запрещён — всегда `cp` + отложенный `rm` на шаге 8.
-- При ошибке на шагах 1–8: верни `BLOCKED`, зафиксируй точку остановки, частичные изменения не откатывай — это работа следующего revise-raund'а Сюзерена.
-- Шаги 9 и 10 — только если 1–8 выполнены без ошибок.
+7. Не удаляй `work_dir`, `.md` или `.yaml` вручную: успешный `apply_intake_plan.py` делает cleanup сам. При ненулевом exit скрипта — `BLOCKED`, cleanup не делать, stderr приложить в `EXECUTION_LOG`.
 
 ## Отчёт
 
 `{{report_contract}}`
 
-Помимо стандартного контракта, в конце отчёта обязательно отдельным абзацем укажи:
+Дополнительно:
 
 - `BATCH:` `{{batch_name}}`
-- `FILES_INGESTED:` сколько файлов раскладки добавлено в `index.yaml`
-- `BUNDLES_CREATED:` сколько комплектов материализовано
-- `ORPHANS_CREATED:` сколько сирот (`Без даты — <Тема>/`)
-- `IMAGES_CONVERTED:` сколько изображений сконвертировано в PDF
-- `RAW_DIR:` путь к `.vassal/raw/intake-ГГГГ-ММ-ДД/`
-- `PLAN_ARCHIVED:` путь в `.vassal/codex-logs/`
-- `INDEX_VALIDATION:` результат финальной проверки YAML
+- `FILES_INGESTED:` `len(added_doc_ids)`
+- `BUNDLES_NEW:` вычислено из backup YAML
+- `BUNDLES_ATTACHED:` вычислено из backup YAML
+- `ORPHANS_CREATED:` `orphan_count`
+- `IMAGES_CONVERTED:` `converted_images`
+- `RAW_DIR:` `raw_batch_path`
+- `PLAN_ARCHIVED:` `[CASE_ROOT]/.vassal/codex-logs/${PLAN_BASENAME}.md`
+- `INDEX_VALIDATION:` результат проверки YAML

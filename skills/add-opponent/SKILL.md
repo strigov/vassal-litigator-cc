@@ -21,7 +21,7 @@ description: >
 ## Переменные сессии
 
 - `plan_timestamp` = `ГГГГ-ММ-ДД-ЧЧмм`
-- `batch_name` = `opponent-ГГГГ-ММ-ДД`
+- `batch_name` = `add-opponent-ГГГГ-ММ-ДД-ЧЧмм` (уникальный per-plan basename)
 - `plan_path` = `.vassal/plans/add-opponent-<plan_timestamp>.md`
 - `work_dir` = `.vassal/work/add-opponent-<plan_timestamp>/`
 - `next_id_hint` = `next_id` из `.vassal/index.yaml`
@@ -42,7 +42,7 @@ description: >
 3. `grep -c "{{" <prompt>` → `0`.
 4. Диспатч без `--write`: `task --background --effort medium "..."`.
 5. Мониторь по шаблону `until/case loop` с `sleep 25`.
-6. Получи отчёт. Проверь: статус `DONE`/`DONE_WITH_CONCERNS`, файл `{{plan_path}}` непустой, поля `WORK_DIR`, `OPPONENT_PARTY`, `DOC_TYPE_HEAD`, `FILES_PLANNED`, `ATTACHMENTS_PLANNED` присутствуют, а в `{{work_dir}}/00-prep.json` есть JSON от `prepare_intake_workdir.py`.
+6. Получи отчёт. Проверь: статус `DONE`/`DONE_WITH_CONCERNS`, файл `{{plan_path}}` непустой, парный YAML существует, поля `PLAN_YAML`, `WORK_DIR`, `OPPONENT_PARTY`, `DOC_TYPE_HEAD`, `FILES_PLANNED`, `ATTACHMENTS_PLANNED` присутствуют, `plan["batch"] == <plan_basename>`, `work_dir == .vassal/work/<batch>`, `raw_dest == .vassal/raw/<batch>`, а в `{{work_dir}}/00-prep.json` есть JSON от `prepare_intake_workdir.py`.
 7. `BLOCKED` / `NEEDS_CONTEXT` — покажи Сюзерену `CONCERNS`, спроси действия. Типичный блокер add-opponent — «поставка без головного документа»: тогда предложи Сюзерену либо вручную обозначить голову, либо вернуть поставку.
 
 ## Фаза 2 — Review Сюзереном
@@ -75,13 +75,16 @@ description: >
 
 1. Прочитай отчёт. Проверь:
    - статус `DONE` / `DONE_WITH_CONCERNS`
-   - `PROC_FOLDER` — путь реально создан
-   - `HEAD_DOC_ID` и `ATTACHMENTS` согласованы с планом
+   - `FILES_INGESTED` совпадает с новыми (непропущенными) из плана
+   - `BUNDLES_NEW` и `BUNDLES_ATTACHED` соответствуют разбору backup YAML в `.vassal/codex-logs/<plan_basename>.yaml`, а не `bundle_count` из stdout скрипта
+   - `FILES_SKIPPED`, `ORPHANS_CREATED`, `IMAGES_CONVERTED` согласованы с backup YAML/stdout apply
+   - `RAW_DIR` указывает на `.vassal/raw/<plan_basename>`
    - `INDEX_VALIDATION` — YAML валиден
    - `PLAN_ARCHIVED` — путь в `.vassal/codex-logs/` существует
-   - `{{plan_path}}` обнулён
+   - `{{plan_path}}` и парный `.yaml` удалены из `.vassal/plans/`
+   - в `.vassal/codex-logs/` есть `<plan_basename>.md` и `<plan_basename>.yaml`; `plan["batch"] == <plan_basename>`
 2. Прочитай `.vassal/index.yaml`: новые записи имеют `source: opponent`, корректные `bundle_id`/`role_in_bundle`/`parent_id`.
-   Для каждой новой записи проверь наличие `ocr_quality` и `ocr_quality_reason`; они должны быть рассчитаны через `classify_ocr_quality.py`, а `needs_manual_review` должен соответствовать правилу `ocr_quality != "ok"`.
+   Для каждой новой записи проверь наличие `ocr_quality` и `ocr_quality_reason`; их пишет `apply_intake_plan.py` через `classify_ocr_quality.py`, а `needs_manual_review` должен соответствовать правилу `ocr_quality != "ok"`. В mirror frontmatter этих полей нет.
 3. Сохрани лог сессии `.vassal/codex-logs/<plan_timestamp>-add-opponent-session.md`: промпт plan + отчёт plan + промпт apply + отчёт apply.
 4. Финальное резюме Сюзерену: `Поставка от <оппонент>: <тип документа>, N приложений, процессуальная папка <...>, needs_manual_review: X`.
 
@@ -100,7 +103,7 @@ description: >
 
 ## Идемпотентность
 
-Plan-фаза сама проверяет по `origin.name` + `origin.archive_src` в предыдущих `opponent-*` batches. Уже обработанные файлы попадают в секцию «Уже обработанные (пропуск)» плана и в индекс не повторно не добавляются, но их оригиналы всё равно копируются в raw и обнуляются из `Входящие документы/`.
+Plan-фаза сама проверяет по `origin.name` + `origin.archive_src` в предыдущих `add-opponent-*` batches. Уже обработанные файлы попадают в секцию «Уже обработанные (пропуск)» markdown-плана и в индекс повторно не добавляются. В machine-plan skipped-файлы не должны попадать в `cleanup_set`, если для них нет безопасной raw-preserving ветки (`raw_only`, `source_path` или `grouped_inputs`).
 
 ## Граничные случаи
 

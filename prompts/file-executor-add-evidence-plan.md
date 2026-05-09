@@ -9,7 +9,7 @@
 
 - `[CASE_ROOT]` = `{{case_root}}`
 - `[PLUGIN_ROOT]` = `{{plugin_root}}`
-- batch: `{{batch_name}}` (формат `evidence-ГГГГ-ММ-ДД`)
+- batch / plan_basename: `{{batch_name}}` (формат `add-evidence-ГГГГ-ММ-ДД-ЧЧмм`)
 - plan_path: `{{plan_path}}` (например `.vassal/plans/add-evidence-ГГГГ-ММ-ДД-ЧЧмм.md`)
 - work_dir: `{{work_dir}}` (например `.vassal/work/add-evidence-ГГГГ-ММ-ДД-ЧЧмм/`)
 - revise_feedback: `{{revise_feedback}}` (пусто при первом запуске; при доработке — буквальный текст правок Сюзерена)
@@ -18,6 +18,7 @@
 ## Разрешённые файловые операции
 
 - `[CASE_ROOT]/{{plan_path}}` — итоговый markdown-план
+- `[CASE_ROOT]/{{plan_path}}` с заменой `.md` на `.yaml` — machine-plan для apply-фазы
 - `[CASE_ROOT]/{{work_dir}}/` — рабочая область: распакованные архивы, OCR, промежуточные артефакты
 - `[CASE_ROOT]/.vassal/history.md` — одна строка о начале plan-сессии
 
@@ -50,7 +51,6 @@
    - отправитель (короткое название без кавычек) / `Неизвестный`
    - описание (тип + номер/предмет)
    - `doc_type` по таксономии из `[PLUGIN_ROOT]/shared/conventions.md`
-   - `parties`, `summary_draft`, `sender_signed`, `seal_present`, `completeness`, `quality`
    - `is_head_of_bundle` / `is_attachment_of` — см. критерии привязки в `shared/conventions.md` §«Хронологическая раскладка»
 
 6. Встраивание в существующую хронологию.
@@ -59,8 +59,8 @@
    - **Создать новый комплект** (≥2 файла образуют голову+приложения в текущей поставке и не присоединяются к существующему).
    - **Одиночный документ** — файл без папки в `Материалы от клиента/ГГГГ-ММ-ДД Отправитель Описание.расш`.
    - **Сирота без даты и без привязки** — `Материалы от клиента/Без даты — <Тема>/<имя>.расш`, `needs_manual_review: true`.
-   - **Скриншот/картинка** — в плане указывается `.pdf`, оригинал остаётся в `.vassal/raw/`.
-   - **Архив-оригинал** — идёт в `.vassal/raw/evidence-{дата}/`, не в `Материалы от клиента/` и не в `index.yaml`.
+   - **Скриншот/картинка** — несколько разных изображений одного документа указывай в `grouped_inputs[]` с `convert_image_to_pdf=true`; одиночное изображение сначала pre-convert через `image_to_pdf.py` в `{{work_dir}}`, а оригинал обязательно добавь в `raw_only[]`. Дублировать один image path в `grouped_inputs[]` запрещено.
+   - **Архив-оригинал** — идёт в `.vassal/raw/{{batch_name}}/`, не в `Материалы от клиента/` и не в `index.yaml`.
    Тематические папки в `Материалы от клиента/` разрешены **только** для сирот.
 
 7. Назначение `doc-ID`.
@@ -69,7 +69,7 @@
 8. Учти `revise_feedback`.
    Если `{{revise_feedback}}` не пустой — применяй буквально. Разделить/объединить/переименовать/переместить — ровно так, как указано.
 
-9. Запись плана.
+9. Запись markdown-плана.
     Запиши `[CASE_ROOT]/{{plan_path}}` по формату (обязательные секции):
 
     ```md
@@ -133,7 +133,21 @@
     - [x] Скриншоты/картинки указаны как PDF в плане
     ```
 
-10. Запись в `history.md`.
+10. Запись machine-plan YAML.
+    Рядом с markdown-планом запиши `[CASE_ROOT]/{{plan_path}}` с заменой `.md` на `.yaml`. `batch` должен равняться basename YAML (`{{batch_name}}`), `work_dir` — `[CASE_ROOT]/.vassal/work/{{batch_name}}`, `raw_dest` — `[CASE_ROOT]/.vassal/raw/{{batch_name}}`.
+
+    YAML строго следует `[PLUGIN_ROOT]/shared/plan-schema.yaml`: `batch`, `source_inbox`, `work_dir`, `raw_dest`, `next_id_start`, `next_bundle_id_start`, `raw_only`, `skipped`, `cleanup_set`, `bundles`, `items`. Не добавляй лишние поля (`schema_version`, `skill`, `parties`, `summary_draft`, `quality`, `signatures_present`, `seal_present`, `complete` и т.п.). `origin.batch` каждого item равен `{{batch_name}}`; `doc_id` непрерывны от `next_id_start`; skipped-файлы не попадают в `cleanup_set`.
+
+11. Валидация machine-plan.
+    ```
+    PLAN_MD="[CASE_ROOT]/{{plan_path}}"
+    PLAN_YAML="${PLAN_MD%.md}.yaml"
+    python3 "[PLUGIN_ROOT]/scripts/validate_machine_plan.py" "[CASE_ROOT]" --plan-yaml "$PLAN_YAML" --mode plan
+    python3 "[PLUGIN_ROOT]/scripts/apply_intake_plan.py" "[CASE_ROOT]" --plan-yaml "$PLAN_YAML" --dry-run
+    ```
+    Любой ненулевой exit → `BLOCKED`, перегенерируй план. JSON dry-run и stderr валидатора внеси в `EXECUTION_LOG`.
+
+12. Запись в `history.md`.
     Одна строка: `ГГГГ-ММ-ДД ЧЧ:ММ add-evidence plan: <plan_path>, файлов в плане: N, пропущено: D`.
 
 ## Дисциплина
@@ -142,7 +156,7 @@
 - Не создавай целевых папок в `Материалы от клиента/` — это работа apply-фазы.
 - Не обновляй `index.yaml`, не создавай зеркал, не клади ничего в `.vassal/raw/`.
 - Каждый шаг процедуры — отдельная строка `EXECUTION_LOG`.
-- Ошибка на шагах 1–10 → `BLOCKED`, план частично не записывай.
+- Ошибка на шагах 1–12 → `BLOCKED`, plan/apply не запускай.
 
 ## Отчёт
 
@@ -151,6 +165,7 @@
 Дополнительно укажи:
 
 - `PLAN_PATH:` абсолютный путь
+- `PLAN_YAML:` абсолютный путь
 - `WORK_DIR:` абсолютный путь
 - `FILES_PLANNED:` всего в плане (без пропущенных)
 - `FILES_SKIPPED:` сколько пропущено как already_processed

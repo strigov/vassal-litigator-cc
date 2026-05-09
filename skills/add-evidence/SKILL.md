@@ -22,7 +22,7 @@ description: >
 ## Переменные сессии
 
 - `plan_timestamp` = `ГГГГ-ММ-ДД-ЧЧмм`
-- `batch_name` = `evidence-ГГГГ-ММ-ДД`
+- `batch_name` = `add-evidence-ГГГГ-ММ-ДД-ЧЧмм` (уникальный per-plan basename)
 - `plan_path` = `.vassal/plans/add-evidence-<plan_timestamp>.md`
 - `work_dir` = `.vassal/work/add-evidence-<plan_timestamp>/`
 - `next_id_hint` = `next_id` из `.vassal/index.yaml`
@@ -42,7 +42,7 @@ description: >
 3. `grep -c "{{" <prompt>` → `0`.
 4. Диспатч без `--write`: `task --background --effort medium "..."`.
 5. Мониторь до `completed` по шаблону из `skills/codex-invocation/SKILL.md` с `sleep 25`.
-6. Получи отчёт. Проверь наличие `PLAN_PATH`, `WORK_DIR`, `FILES_PLANNED`, `BUNDLES_NEW`, `BUNDLES_ATTACHED`, `ORPHANS_PLANNED`, `FILES_SKIPPED`, файл `{{plan_path}}` непустой, а в `{{work_dir}}/00-prep.json` есть JSON от `prepare_intake_workdir.py`.
+6. Получи отчёт. Проверь наличие `PLAN_PATH`, `PLAN_YAML`, `WORK_DIR`, `FILES_PLANNED`, `BUNDLES_NEW`, `BUNDLES_ATTACHED`, `ORPHANS_PLANNED`, `FILES_SKIPPED`, файл `{{plan_path}}` непустой, рядом лежащий YAML существует, `plan["batch"] == <plan_basename>`, `work_dir == .vassal/work/<batch>`, `raw_dest == .vassal/raw/<batch>`, а в `{{work_dir}}/00-prep.json` есть JSON от `prepare_intake_workdir.py`.
 7. `BLOCKED` / `NEEDS_CONTEXT` → покажи Сюзерену `CONCERNS`, спроси, что делать.
 
 ## Фаза 2 — Review Сюзереном
@@ -77,19 +77,20 @@ description: >
 1. Прочитай отчёт Codex. Проверь:
    - статус `DONE` или `DONE_WITH_CONCERNS`
    - `FILES_INGESTED` совпадает с новыми (непропущенными) из плана
-   - `BUNDLES_ATTACHED` соответствует секции присоединений в плане
+   - `BUNDLES_NEW` и `BUNDLES_ATTACHED` соответствуют разбору backup YAML в `.vassal/codex-logs/<plan_basename>.yaml`, а не `bundle_count` из stdout скрипта
    - `INDEX_VALIDATION` — YAML валиден
    - `PLAN_ARCHIVED` указывает реальный путь в `.vassal/codex-logs/`
-   - `{{plan_path}}` обнулён
+   - `{{plan_path}}` и парный `.yaml` удалены из `.vassal/plans/`
+   - в `.vassal/codex-logs/` есть `<plan_basename>.md` и `<plan_basename>.yaml`; `plan["batch"] == <plan_basename>`
 2. Прочитай `.vassal/index.yaml`: новые записи имеют `source: client`, корректные `bundle_id`/`role_in_bundle`/`parent_id`.
-   Для каждой новой записи проверь наличие `ocr_quality` и `ocr_quality_reason`; они должны быть рассчитаны через `classify_ocr_quality.py`, а `needs_manual_review` должен соответствовать правилу `ocr_quality != "ok"`.
+   Для каждой новой записи проверь наличие `ocr_quality` и `ocr_quality_reason`; их пишет `apply_intake_plan.py` через `classify_ocr_quality.py`, а `needs_manual_review` должен соответствовать правилу `ocr_quality != "ok"`. В mirror frontmatter этих полей нет.
 3. Если в `Входящие документы/` остались файлы из плана — аномалия, покажи Сюзерену.
 4. Сохрани лог сессии `.vassal/codex-logs/<plan_timestamp>-add-evidence-session.md`: промпт plan + отчёт plan + промпт apply + отчёт apply.
 5. Финальное резюме Сюзерену: `N новых записей, M новых комплектов, J присоединений, S сирот, K изображений → PDF, D пропущено. needs_manual_review: X`.
 
 ## Идемпотентность
 
-План-фаза сама детектирует уже обработанные файлы по `origin.name` + `origin.archive_src` в `index.yaml` и помечает их как `already_processed: true`. Такие файлы попадают в секцию «Уже обработанные (пропуск)» плана, копируются в `.vassal/raw/` для архивации (шаг 2 apply) и удаляются из `Входящие документы/` через `rm` (шаг 8 apply), но не получают `doc-ID` и не идут в индекс.
+План-фаза сама детектирует уже обработанные файлы по `origin.name` + `origin.archive_src` в `index.yaml` и помечает их в markdown-плане как пропуск. В machine-plan skipped-файлы не должны попадать в `cleanup_set`, если для них нет безопасной raw-preserving ветки (`raw_only`, `source_path` или `grouped_inputs`).
 
 Это защищает от двойного приобщения, когда клиент присылает тот же пакет повторно.
 

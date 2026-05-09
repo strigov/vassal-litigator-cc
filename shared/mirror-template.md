@@ -16,11 +16,9 @@ extraction_method: pdf-text
 extraction_model: haiku
 extraction_date: 2026-03-26
 confidence: high
+ocr_reattempted: false
+# extraction_methods_mixed: true
 ---
-
-# Договор поставки №47
-
-## от 01 июня 2025 года
 
 [Полный текст документа...]
 
@@ -43,6 +41,10 @@ confidence: high
 | extraction_model | нет | Модель, выполнившая извлечение (haiku, sonnet) |
 | extraction_date | да | Дата создания зеркала |
 | confidence | да | high, medium, low |
+| ocr_reattempted | да | Всегда `false` для зеркал, созданных `apply_intake_plan.py` |
+| extraction_methods_mixed | нет | `true`, если документ собран из артефактов с разными методами извлечения |
+
+`apply_intake_plan.py` рендерит ровно эти поля и в указанном порядке: `id`, `source`, `type`, `title`, `date`, `pages`, `extraction_method`, `extraction_model`, `extraction_date`, `confidence`, `ocr_reattempted`, опционально `extraction_methods_mixed`. Полей `ocr_quality`, `ocr_quality_reason`, `needs_manual_review`, `parties`, `summary_draft`, `quality`, `signatures_present`, `seal_present`, `complete` в frontmatter зеркала нет; качество OCR пишется в `.vassal/index.yaml`.
 
 ## Правила создания
 

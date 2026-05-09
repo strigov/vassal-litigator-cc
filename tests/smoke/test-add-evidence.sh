@@ -72,23 +72,27 @@ $SMOKE_CASE
    - в плане есть новый документ "большой-договор-evidence.pdf"
    - для него назначен новый doc-ID
    - нет попытки перепривязать уже существующие документы
+   - рядом создан `.vassal/plans/add-evidence-ГГГГ-ММ-ДД-ЧЧмм.yaml`,
+     `batch` равен basename, `work_dir`/`raw_dest` привязаны к batch, лишних ключей нет
 7. Подтверди apply.
 
 ОЖИДАЕМЫЙ РЕЗУЛЬТАТ:
- - создан raw-батч `.vassal/raw/evidence-ГГГГ-ММ-ДД/` с копией `большой-договор-evidence.pdf`
-- в `.vassal/index.yaml` появилась новая запись с `source: client` и `origin.batch: evidence-...`
+- создан raw-батч `.vassal/raw/add-evidence-ГГГГ-ММ-ДД-ЧЧмм/` с копией `большой-договор-evidence.pdf`
+- в `.vassal/index.yaml` появилась новая запись с `source: client` и `origin.batch: add-evidence-...`
 - для новой записи создано `.vassal/mirrors/doc-NNN.md` с полным текстом
-- `.vassal/codex-logs/` содержит архив плана add-evidence
-- `.vassal/plans/add-evidence-*.md` и `.vassal/work/add-evidence-*/` удалены
+- `.vassal/codex-logs/` содержит архивы плана add-evidence: `.md` и `.yaml`
+- `.vassal/plans/add-evidence-*.md`, `.yaml` и `.vassal/work/add-evidence-*/` удалены
 - `Входящие документы/` снова пустая
 
 ПРОВЕРКА:
 - export SMOKE_CASE="$SMOKE_CASE"; export PLUGIN_ROOT="$PLUGIN_ROOT"
 - source "\$SMOKE_CASE/.smoke-fulltext.sh"
-- find "\$SMOKE_CASE/.vassal/raw" -path '*evidence-*' -type f
+- find "\$SMOKE_CASE/.vassal/raw" -path '*add-evidence-*' -type f
 - python3 -c "import pathlib, yaml; p=pathlib.Path('\$SMOKE_CASE/.vassal/index.yaml'); d=yaml.safe_load(p.read_text(encoding='utf-8')); docs=d.get('documents', []); hits=[x for x in docs if (x.get('origin', {}) or {}).get('name') == 'большой-договор-evidence.pdf']; print('hits=', len(hits)); print('sources=', [x.get('source') for x in hits]); print('batches=', [(x.get('origin', {}) or {}).get('batch') for x in hits])"
 - assert_mirror_full "большой-договор-evidence.pdf"
-- find "\$SMOKE_CASE/.vassal/codex-logs" -name '*add-evidence-plan.md' -type f
+- find "\$SMOKE_CASE/.vassal/codex-logs" -name 'add-evidence-*.md' -type f
+- find "\$SMOKE_CASE/.vassal/codex-logs" -name 'add-evidence-*.yaml' -type f
+- python3 -c "import pathlib,yaml; root=pathlib.Path('\$SMOKE_CASE'); p=next((root/'.vassal/codex-logs').glob('add-evidence-*.yaml')); d=yaml.safe_load(p.read_text(encoding='utf-8')); allowed={'batch','source_inbox','work_dir','raw_dest','next_id_start','next_bundle_id_start','raw_only','skipped','cleanup_set','bundles','items'}; print('batch=', d['batch']); assert p.stem == d['batch']; assert set(d) <= allowed; assert d['work_dir'].endswith('/.vassal/work/'+d['batch']); assert d['raw_dest'].endswith('/.vassal/raw/'+d['batch'])"
 - ls "\$SMOKE_CASE/.vassal/plans/" 2>/dev/null; ls "\$SMOKE_CASE/.vassal/work/" 2>/dev/null
 
 ОЧИСТКА:

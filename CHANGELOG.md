@@ -5,6 +5,8 @@
 - Перенесены deterministic-скрипты `prepare_intake_workdir.py`, `scan_case_state.py`, `classify_ocr_quality.py` из reference-плагина.
 - Plan-фазы `intake`, `add-evidence`, `add-opponent` используют JSON `prepare_intake_workdir.py` вместо ручной распаковки/OCR/обхода inbox.
 - `update-index` preview строится через `scan_case_state.py`, а OCR quality в apply/verify считается через единый `classify_ocr_quality.py`.
+- Добавлен machine-plan формат `<plan_basename>.yaml` для `intake`, `add-evidence`, `add-opponent`.
+- Apply-фазы `intake`, `add-evidence`, `add-opponent` переведены на детерминированный `scripts/apply_intake_plan.py` с предварительной `validate_machine_plan.py`-валидацией, resume guard и архивированием markdown/YAML плана в `.vassal/codex-logs/`.
 
 ## [vassal-litigator-cc] v1.0.0 -- 2026-04-22
 

@@ -9,7 +9,7 @@
 
 - `[CASE_ROOT]` = `{{case_root}}`
 - `[PLUGIN_ROOT]` = `{{plugin_root}}`
-- batch: `{{batch_name}}` (формат `opponent-ГГГГ-ММ-ДД`)
+- batch / plan_basename: `{{batch_name}}` (формат `add-opponent-ГГГГ-ММ-ДД-ЧЧмм`)
 - plan_path: `{{plan_path}}` (например `.vassal/plans/add-opponent-ГГГГ-ММ-ДД-ЧЧмм.md`)
 - work_dir: `{{work_dir}}` (например `.vassal/work/add-opponent-ГГГГ-ММ-ДД-ЧЧмм/`)
 - revise_feedback: `{{revise_feedback}}` (пусто при первом запуске)
@@ -19,6 +19,7 @@
 ## Разрешённые файловые операции
 
 - `[CASE_ROOT]/{{plan_path}}` — итоговый markdown-план
+- `[CASE_ROOT]/{{plan_path}}` с заменой `.md` на `.yaml` — machine-plan для apply-фазы
 - `[CASE_ROOT]/{{work_dir}}/` — рабочая область (OCR, распакованные архивы)
 - `[CASE_ROOT]/.vassal/history.md` — одна строка о начале plan-сессии
 
@@ -69,16 +70,16 @@
    Если поставка — россыпь без привязки к головному документу (например, только приложения без сопроводительного отзыва; процессуально редко, но бывает) — это аномалия: плану нужна голова. Зафиксируй как `BLOCKED` с описанием «Поставка оппонента без головного документа», чтобы Сюзерен решил: создать синтетический «Сопровод» вручную или вернуть поставку.
 
 8. Сироты и скриншоты.
-   Если среди приложений встречаются картинки (`.png`, `.jpg`, `.jpeg`, `.tif`, `.tiff`, `.bmp`, `.heic`) — в плане указывай `.pdf`, apply сконвертирует. Оригинал попадёт в `.vassal/raw/`.
+   Если среди приложений встречаются картинки (`.png`, `.jpg`, `.jpeg`, `.tif`, `.tiff`, `.bmp`, `.heic`) — несколько разных изображений одного документа указывай в `grouped_inputs[]` с `convert_image_to_pdf=true`; одиночное изображение сначала pre-convert через `image_to_pdf.py` в `{{work_dir}}`, а оригинал обязательно добавь в `raw_only[]`. Дублировать один image path в `grouped_inputs[]` запрещено.
    Файлов без привязки к поставке быть не должно (все они — члены одного процессуального комплекта). Но если какой-то файл совершенно не укладывается (случайно попал в пакет) — помести в `Материалы от клиента/Без даты — <Тема>/` как сироту с `needs_manual_review: true` и явной пометкой в заметке: «файл не является частью процессуальной поставки, вероятно попал случайно».
 
 9. Идемпотентность.
-    По `origin.name` + `origin.archive_src` + предыдущим `opponent-*` batches проверь, не обработан ли уже этот файл. Если да — помечай `already_processed: true`, в apply не попадёт, но в секции «Уже обработанные (пропуск)» плана перечисли.
+    По `origin.name` + `origin.archive_src` + предыдущим `add-opponent-*` и legacy `opponent-*` batches проверь, не обработан ли уже этот файл. Если да — помечай `already_processed: true`, в apply не попадёт, но в секции «Уже обработанные (пропуск)» плана перечисли.
 
 10. Учти `revise_feedback`.
     Если не пустой — применяй правки Сюзерена буквально (переименовать папку/основной документ, переложить приложение, изменить таксономию).
 
-11. Запись плана.
+11. Запись markdown-плана.
     `[CASE_ROOT]/{{plan_path}}`:
 
     ```md
@@ -134,7 +135,21 @@
     - [x] Картинки-приложения указаны как PDF
     ```
 
-12. Запись в `history.md`.
+12. Запись machine-plan YAML.
+    Рядом с markdown-планом запиши `[CASE_ROOT]/{{plan_path}}` с заменой `.md` на `.yaml`. `batch` должен равняться basename YAML (`{{batch_name}}`), `work_dir` — `[CASE_ROOT]/.vassal/work/{{batch_name}}`, `raw_dest` — `[CASE_ROOT]/.vassal/raw/{{batch_name}}`.
+
+    YAML строго следует `[PLUGIN_ROOT]/shared/plan-schema.yaml`: `batch`, `source_inbox`, `work_dir`, `raw_dest`, `next_id_start`, `next_bundle_id_start`, `raw_only`, `skipped`, `cleanup_set`, `bundles`, `items`. Не добавляй лишние поля (`schema_version`, `skill`, `parties`, `summary_draft`, `quality`, `signatures_present`, `seal_present`, `complete` и т.п.). `origin.batch` каждого item равен `{{batch_name}}`; `doc_id` непрерывны от `next_id_start`; skipped-файлы не попадают в `cleanup_set`.
+
+13. Валидация machine-plan.
+    ```
+    PLAN_MD="[CASE_ROOT]/{{plan_path}}"
+    PLAN_YAML="${PLAN_MD%.md}.yaml"
+    python3 "[PLUGIN_ROOT]/scripts/validate_machine_plan.py" "[CASE_ROOT]" --plan-yaml "$PLAN_YAML" --mode plan
+    python3 "[PLUGIN_ROOT]/scripts/apply_intake_plan.py" "[CASE_ROOT]" --plan-yaml "$PLAN_YAML" --dry-run
+    ```
+    Любой ненулевой exit → `BLOCKED`, перегенерируй план. JSON dry-run и stderr валидатора внеси в `EXECUTION_LOG`.
+
+14. Запись в `history.md`.
     `ГГГГ-ММ-ДД ЧЧ:ММ add-opponent plan: <plan_path>, файлов: N, пропущено: D`.
 
 ## Дисциплина
@@ -143,7 +158,7 @@
 - Не создавай процессуальных папок в корне дела — это apply-фаза.
 - Не обновляй `index.yaml`, не пиши в `.vassal/raw/`, не делай зеркал.
 - Каждый шаг — отдельная строка `EXECUTION_LOG`.
-- Ошибка на шагах 1–12 → `BLOCKED`, план частично не записывай.
+- Ошибка на шагах 1–14 → `BLOCKED`, plan/apply не запускай.
 
 ## Отчёт
 
@@ -152,6 +167,7 @@
 Дополнительно:
 
 - `PLAN_PATH:` абсолютный путь
+- `PLAN_YAML:` абсолютный путь
 - `WORK_DIR:` абсолютный путь
 - `OPPONENT_PARTY:` название оппонента из плана
 - `DOC_TYPE_HEAD:` тип основного документа

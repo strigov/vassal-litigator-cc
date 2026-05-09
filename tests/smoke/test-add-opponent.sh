@@ -72,24 +72,28 @@ $SMOKE_CASE
    - найден один новый файл
    - выбран оппонент из карточки дела
    - план создаёт новую процессуальную папку и doc-ID
+   - рядом создан `.vassal/plans/add-opponent-ГГГГ-ММ-ДД-ЧЧмм.yaml`,
+     `batch` равен basename, `work_dir`/`raw_dest` привязаны к batch, лишних ключей нет
 7. Подтверди apply.
 8. Если после apply будет предложен экспресс-анализ Opus, его можно подтвердить отдельно; файловая проверка на этом не зависит.
 
 ОЖИДАЕМЫЙ РЕЗУЛЬТАТ:
-- создан raw-батч `.vassal/raw/opponent-ГГГГ-ММ-ДД/` с копией `большой-отзыв-ответчика.pdf`
+- создан raw-батч `.vassal/raw/add-opponent-ГГГГ-ММ-ДД-ЧЧмм/` с копией `большой-отзыв-ответчика.pdf`
 - в `.vassal/index.yaml` появилась новая запись с `source: opponent`
 - для новой записи создано `.vassal/mirrors/doc-NNN.md` с полным текстом
 - создана процессуальная папка с головным документом оппонента
-- `.vassal/codex-logs/` содержит архив плана add-opponent
-- `.vassal/plans/add-opponent-*.md` и `.vassal/work/add-opponent-*/` удалены
+- `.vassal/codex-logs/` содержит архивы плана add-opponent: `.md` и `.yaml`
+- `.vassal/plans/add-opponent-*.md`, `.yaml` и `.vassal/work/add-opponent-*/` удалены
 
 ПРОВЕРКА:
 - export SMOKE_CASE="$SMOKE_CASE"; export PLUGIN_ROOT="$PLUGIN_ROOT"
 - source "\$SMOKE_CASE/.smoke-fulltext.sh"
 - python3 -c "import pathlib, yaml; p=pathlib.Path('\$SMOKE_CASE/.vassal/index.yaml'); d=yaml.safe_load(p.read_text(encoding='utf-8')); docs=d.get('documents', []); hits=[x for x in docs if (x.get('origin', {}) or {}).get('name') == 'большой-отзыв-ответчика.pdf']; print('hits=', len(hits)); print('sources=', [x.get('source') for x in hits]); print('files=', [x.get('file') for x in hits])"
 - assert_mirror_full "большой-отзыв-ответчика.pdf"
-- find "\$SMOKE_CASE/.vassal/raw" -path '*opponent-*' -type f
-- find "\$SMOKE_CASE/.vassal/codex-logs" -name '*add-opponent-plan.md' -type f
+- find "\$SMOKE_CASE/.vassal/raw" -path '*add-opponent-*' -type f
+- find "\$SMOKE_CASE/.vassal/codex-logs" -name 'add-opponent-*.md' -type f
+- find "\$SMOKE_CASE/.vassal/codex-logs" -name 'add-opponent-*.yaml' -type f
+- python3 -c "import pathlib,yaml; root=pathlib.Path('\$SMOKE_CASE'); p=next((root/'.vassal/codex-logs').glob('add-opponent-*.yaml')); d=yaml.safe_load(p.read_text(encoding='utf-8')); allowed={'batch','source_inbox','work_dir','raw_dest','next_id_start','next_bundle_id_start','raw_only','skipped','cleanup_set','bundles','items'}; print('batch=', d['batch']); assert p.stem == d['batch']; assert set(d) <= allowed; assert d['work_dir'].endswith('/.vassal/work/'+d['batch']); assert d['raw_dest'].endswith('/.vassal/raw/'+d['batch'])"
 - ls "\$SMOKE_CASE/.vassal/plans/" 2>/dev/null; ls "\$SMOKE_CASE/.vassal/work/" 2>/dev/null
 
 ОЧИСТКА:

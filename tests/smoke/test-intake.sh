@@ -79,6 +79,9 @@ $SMOKE_CASE
 6. Фаза plan: Codex medium без --write. Дождись, пока Claude покажет markdown-план.
 7. Проверь план:
    - scan: таблица файлов с новыми именами, целевыми папками, doc-ID
+   - рядом создан `.vassal/plans/intake-ГГГГ-ММ-ДД-ЧЧмм.yaml`
+   - в YAML: `batch` равен basename файла, `work_dir` = `.vassal/work/<batch>`,
+     `raw_dest` = `.vassal/raw/<batch>`, лишних ключей (`schema_version`, `skill`, `parties`) нет
    - скан.jpg помечен для конверсии в PDF
    - архив.zip помечен как "archive_failed: false", его содержимое (акт.pdf, платёжка.pdf)
      попало в таблицу как отдельные файлы с origin.archive_src = "архив"
@@ -88,7 +91,7 @@ $SMOKE_CASE
 9. Фаза apply: Codex medium --write. Дождись завершения.
 
 ОЖИДАЕМЫЙ РЕЗУЛЬТАТ:
-- .vassal/raw/intake-ГГГГ-ММ-ДД/ содержит копии всех 5 исходников + содержимое архива:
+- .vassal/raw/intake-ГГГГ-ММ-ДД-ЧЧмм/ содержит копии всех 5 исходников + содержимое архива:
   договор.pdf, претензия.pdf, скан.jpg, большой-договор.pdf, архив.zip, архив__акт.pdf, архив__платёжка.pdf
 - .vassal/mirrors/ содержит doc-001.md ... doc-NNN.md (по числу проиндексированных)
 - .vassal/index.yaml валиден, source: client, у каждой записи заполнены
@@ -103,17 +106,21 @@ $SMOKE_CASE
   (в raw остаётся, в index.yaml есть только его содержимое)
 - Зеркало для `большой-договор.pdf` содержит полный текст OCR-артефакта, без усечения
 - Входящие документы/ пустая (все 5 файлов удалены через rm после архивации в .vassal/raw/)
-- .vassal/plans/intake-*.md удалён после архивации
-- .vassal/codex-logs/ГГГГ-ММ-ДД-ЧЧмм-intake-plan.md — архивная копия плана
+- .vassal/plans/intake-*.md и .vassal/plans/intake-*.yaml удалены после apply
+- .vassal/codex-logs/intake-ГГГГ-ММ-ДД-ЧЧмм.md и .yaml — архивные копии плана
 - .vassal/work/intake-*/ удалена целиком
 - .vassal/history.md содержит две строки: "intake plan: ..." и "intake apply: ..."
+- два intake/additional apply-захода в один день должны иметь разные basenames с разным `ЧЧмм`,
+  независимые `.vassal/raw/<batch>` и отдельные строки history
 
 ПРОВЕРКА:
 - ls -la "\$SMOKE_CASE/Входящие документы/"                      # должна быть пустой
 - find "\$SMOKE_CASE/.vassal/raw" -type f | wc -l                # >= 7 (5 исходников + 2 из архива)
 - find "\$SMOKE_CASE/.vassal/mirrors" -name 'doc-*.md' | wc -l   # == число записей в index.yaml
 - find "\$SMOKE_CASE/Материалы от клиента" -type f               # хронологическая раскладка
-- find "\$SMOKE_CASE/.vassal/codex-logs" -name '*-intake-plan.md' -type f
+- find "\$SMOKE_CASE/.vassal/codex-logs" -name 'intake-*.md' -type f
+- find "\$SMOKE_CASE/.vassal/codex-logs" -name 'intake-*.yaml' -type f
+- python3 -c "import pathlib,yaml; root=pathlib.Path('\$SMOKE_CASE'); p=next((root/'.vassal/codex-logs').glob('intake-*.yaml')); d=yaml.safe_load(p.read_text(encoding='utf-8')); allowed={'batch','source_inbox','work_dir','raw_dest','next_id_start','next_bundle_id_start','raw_only','skipped','cleanup_set','bundles','items'}; print('batch=', d['batch']); assert p.stem == d['batch']; assert set(d) <= allowed; assert d['work_dir'].endswith('/.vassal/work/'+d['batch']); assert d['raw_dest'].endswith('/.vassal/raw/'+d['batch'])"
 - ls "\$SMOKE_CASE/.vassal/plans/" 2>/dev/null; ls "\$SMOKE_CASE/.vassal/work/" 2>/dev/null
 - python3 -c "import yaml, pathlib; p=pathlib.Path('\$SMOKE_CASE/.vassal/index.yaml'); d=yaml.safe_load(p.read_text(encoding='utf-8')); docs=d.get('documents', []); print('docs=', len(docs), 'next_id=', d.get('next_id')); print([d2.get('source') for d2 in docs])"
 - export SMOKE_CASE="$SMOKE_CASE"; export PLUGIN_ROOT="$PLUGIN_ROOT"

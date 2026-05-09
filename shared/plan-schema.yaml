@@ -1,0 +1,58 @@
+# Informational schema for intake/add-evidence/add-opponent machine plans.
+# Source of truth is scripts/apply_intake_plan.py::_validate_plan.
+
+batch: string # <skill>-YYYY-MM-DD-HHMM; equals plan filename stem
+source_inbox: path # exactly <case_root>/Входящие документы
+work_dir: path # exactly <case_root>/.vassal/work/<batch>
+raw_dest: path # exactly <case_root>/.vassal/raw/<batch>
+next_id_start: integer
+next_bundle_id_start: integer
+
+raw_only:
+  - archive_src: path # source_inbox file copied bit-for-bit to raw_dest
+    raw_dest_name: string # safe basename inside raw_dest
+
+skipped:
+  - path: path
+    reason: string|null
+
+cleanup_set:
+  - path # source_inbox path removable only if preserved through item/grouped_inputs/raw_only
+
+bundles:
+  - id: string # bundle-NNN
+    is_new: boolean
+    title: string
+    main_doc: string # doc-NNN
+    members:
+      - string # doc-NNN
+
+items:
+  - source_path: path|null # exactly one of source_path/grouped_inputs
+    grouped_inputs:
+      - path # only for true multi-image documents, distinct real paths
+    archive_src: path|null # provenance only; does not copy archive by itself
+    target_file: path
+    convert_image_to_pdf: boolean
+    ocr_artifacts:
+      - path: path|null
+        extraction_method: string
+        pages: integer
+        total_chars: integer
+        confidence: string|number
+    combined_text_path: path|null
+    doc_id: string # doc-NNN, contiguous from next_id_start
+    title: string
+    type: string
+    date: string|null # YYYY-MM-DD or null
+    source: string # client|opponent|other local convention
+    origin:
+      name: string
+      date: string|null
+      received: string
+      batch: string # equals top-level batch
+      archive_src: string|null # basename of archive_src when present
+    bundle_id: string|null
+    role_in_bundle: string|null # head|attachment|null
+    parent_id: string|null
+    attachment_order: integer|null
