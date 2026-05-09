@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import os
 import sys
-import tempfile
 import time
 from pathlib import Path
 
@@ -146,6 +146,38 @@ def test_stale_mirror_when_mirror_older_than_source(tmp_path: Path) -> None:
     reason = scs._first_stale_reason(source, mirror, None)
     assert reason is not None
     assert "mirror older" in reason
+
+
+def test_main_reports_stale_mirror_from_source_mtime(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    source = _touch(tmp_path / "Материалы от клиента" / "source.pdf")
+    mirror = _touch(tmp_path / ".vassal" / "mirrors" / "doc-001.md")
+    case_root = _make_case(
+        tmp_path,
+        documents=[
+            {
+                "id": "doc-001",
+                "file": "Материалы от клиента/source.pdf",
+                "mirror": ".vassal/mirrors/doc-001.md",
+            }
+        ],
+    )
+
+    now = time.time()
+    _set_mtime(mirror, now - 100)
+    _set_mtime(source, now)
+
+    old_argv = sys.argv
+    try:
+        sys.argv = ["scan_case_state.py", str(case_root)]
+        assert scs.main() == 0
+    finally:
+        sys.argv = old_argv
+
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["stale_mirrors"] == [
+        {"id": "doc-001", "reason": "mirror older than file mtime"}
+    ]
 
 
 def test_no_stale_mirror_when_mirror_newer_than_source(tmp_path: Path) -> None:

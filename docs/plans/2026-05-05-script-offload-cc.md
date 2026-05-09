@@ -1,7 +1,7 @@
 ---
 slug: script-offload-cc
 created: 2026-05-05
-status: in-progress
+status: done
 phases:
   - id: Ф1
     scope: "Перенос детерминированных утилит-скриптов из vassal-litigator (prepare_intake_workdir, scan_case_state, classify_ocr_quality) и их подключение в plan-фазу intake/add-evidence/add-opponent + verify-фазу update-index"
@@ -11,7 +11,7 @@ phases:
     status: done
   - id: Ф3
     scope: "Сокращение update-index apply-промпта: scan_case_state в preview, скрипт-обёртка для extract+classify, упрощение апплая до перечня операций"
-    status: in-progress
+    status: done
 ---
 
 ## Goal

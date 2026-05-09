@@ -24,7 +24,7 @@ if [[ -z "$PLUGIN_ROOT" ]]; then
 fi
 
 case "$PWD" in
-    /tmp|/tmp/*) ;;
+    /tmp|/tmp/*|/private/tmp|/private/tmp/*) ;;
     *)
         echo "WARNING: smoke-скрипт можно запускать только из /tmp/. Текущий CWD: $PWD"
         exit 1
@@ -45,6 +45,7 @@ source "$PLUGIN_ROOT/tests/smoke/_fulltext_common.sh"
 
 SMOKE_CASE="/tmp/smoke-vassal-update-index-$(date +%s)"
 PAYLOAD_DIR="$SMOKE_CASE/.smoke-payloads"
+EXPECTED_SCAN="/tmp/smoke-vassal-update-index-expected-scan-$(date +%s)-$$.json"
 
 mkdir -p "$SMOKE_CASE" "$PAYLOAD_DIR"
 cp -R "$PLUGIN_ROOT/tests/fixtures/dummy-case/Входящие документы" "$SMOKE_CASE/"
@@ -86,17 +87,31 @@ PY
    export STALE_FILE=\$(source_of_id "\$STALE_ID")
    cp "$PAYLOAD_DIR/большой-договор-update-index.pdf" "$SMOKE_CASE/\$STALE_FILE"
    touch -m "$SMOKE_CASE/\$STALE_FILE"
-6. Выполни: /vassal-litigator:update-index
-7. Проверь preview:
-   - новый файл `2026-04-22 Большой документ для update-index.pdf` попал в режим добавления
-   - `\$STALE_ID` попал в список устаревших зеркал
-8. Подтверди apply.
+6. Зафиксируй ожидаемый JSON preview от детерминированного сканера:
+   python3 "$PLUGIN_ROOT/scripts/scan_case_state.py" "$SMOKE_CASE" | tee "$EXPECTED_SCAN"
+   python3 - "$EXPECTED_SCAN" <<'PY'
+import json
+import pathlib
+import sys
+
+payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+for key in ("index_count", "fs_count", "new_files", "orphans", "stale_mirrors"):
+    if key not in payload:
+        raise SystemExit(f"missing scan_case_state key: {key}")
+print("scan_case_state preview JSON: OK")
+PY
+7. Выполни: /vassal-litigator:update-index
+8. Проверь preview:
+   - preview показывает поля index_count, fs_count, new_files, orphans, stale_mirrors из "$EXPECTED_SCAN"
+   - новый файл "2026-04-22 Большой документ для update-index.pdf" попал в режим добавления
+   - "\$STALE_ID" попал в список устаревших зеркал
+9. Подтверди apply.
 
 ОЖИДАЕМЫЙ РЕЗУЛЬТАТ:
-- новый файл появился в `.vassal/index.yaml` с новым doc-ID и зеркалом
-- для `\$STALE_ID` зеркало пересоздано и `mirror_stale: false`
+- новый файл появился в ".vassal/index.yaml" с новым doc-ID и зеркалом
+- для "\$STALE_ID" зеркало пересоздано и "mirror_stale: false"
 - оба зеркала содержат полный текст без усечения
-- `.vassal/codex-logs/` содержит лог update-index
+- ".vassal/codex-logs/" содержит лог update-index
 
 ПРОВЕРКА:
 - export SMOKE_CASE="$SMOKE_CASE"; export PLUGIN_ROOT="$PLUGIN_ROOT"
@@ -108,4 +123,5 @@ PY
 
 ОЧИСТКА:
 rm -rf "$SMOKE_CASE"
+rm -f "$EXPECTED_SCAN"
 EOF
