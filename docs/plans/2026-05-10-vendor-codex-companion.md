@@ -14,10 +14,10 @@ phases:
     status: done
   - id: Ф4
     scope: "Перенести тесты vendor/codex-companion/tests/ + helpers; добавить tests/smoke/test-codex-dispatch.sh; запустить `node tests/index.js` локально"
-    status: in-progress
+    status: done
   - id: Ф5
     scope: "Обновить README.md / ARCHITECTURE.md / CHANGELOG.md / plugin.json (description), удалить упоминания зависимости от openai-codex, добавить раздел про vendored companion"
-    status: pending
+    status: in-progress
 ---
 
 # Vendor codex-companion в vassal-litigator-cc
