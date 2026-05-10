@@ -33,109 +33,54 @@ description: >
 
 Если логин уже делался, повторять не нужно.
 
-### 2. Resolve `$CODEX_COMPANION` — 3-tier fallback
+### 2. Resolve `$DISPATCH` и legacy `$CODEX_COMPANION`
 
-Плагин `openai-codex` в типовом install Claude Code лежит под `~/.claude/plugins/cache/openai-codex/codex/{version}/scripts/codex-companion.mjs`. Hardcoded `~/.claude/...` хрупок по двум причинам:
+Основной транспорт — `bin/codex-dispatch`. Wrapper сам резолвит vendored runtime из marketplace install или локального dev-tree, выставляет изолированный `CLAUDE_PLUGIN_DATA` и прокидывает аргументы в companion без model-pinning.
 
-- версия в пути меняется при обновлении плагина `openai-codex`;
-- `$HOME` может быть переопределён в некоторых средах.
-
-Поэтому в начале сессии Claude-main **один раз** резолвит абсолютный путь в переменную `$CODEX_COMPANION` и дальше использует только её.
-
-Алгоритм:
+В начале сессии Claude-main **один раз** резолвит `$DISPATCH`:
 
 ```bash
-resolve_codex_companion() {
-  # Tier 1 — env-override (если юрист уже выставил вручную)
-  if [ -n "${CODEX_COMPANION:-}" ] && [ -f "$CODEX_COMPANION" ]; then
-    return 0
-  fi
+DISPATCH=""
+[ -n "${PLUGIN_ROOT:-}" ] && [ -x "$PLUGIN_ROOT/bin/codex-dispatch" ] && DISPATCH="$PLUGIN_ROOT/bin/codex-dispatch"
+[ -z "$DISPATCH" ] && DISPATCH="$(ls -1d ~/.claude/plugins/cache/strigov-cc-plugins/vassal-litigator-cc/*/bin/codex-dispatch 2>/dev/null | sort -rV | head -1)"
+[ -z "$DISPATCH" ] && DISPATCH="$(pwd)/bin/codex-dispatch"
 
-  # Tier 2 — канонический путь под $HOME (install через marketplace)
-  local cand
-  for cand in \
-    "$HOME/.claude/plugins/cache/openai-codex/codex/"*/scripts/codex-companion.mjs
-  do
-    if [ -f "$cand" ]; then
-      export CODEX_COMPANION="$cand"
-      return 0
-    fi
-  done
-
-  # Tier 3 — парсинг installed_plugins.json
-  # (на случай, если HOME переопределён или установлена нестандартная версия).
-  local resolved
-  resolved="$(python3 - <<'PY'
-import json, os, sys, glob
-
-candidates = []
-home = os.environ.get('HOME')
-if home:
-    candidates.append(home)
-user = os.environ.get('USER')
-if user:
-    candidates.append(f"/Users/{user}")          # macOS host home
-    candidates.append(f"/home/{user}")           # linux host home
-
-seen = set()
-for base in candidates:
-    if not base or base in seen:
-        continue
-    seen.add(base)
-    path = os.path.join(base, '.claude/plugins/installed_plugins.json')
-    if not os.path.isfile(path):
-        continue
-    try:
-        with open(path, 'r', encoding='utf-8') as fh:
-            data = json.load(fh)
-    except Exception:
-        continue
-    for key, entries in data.get('plugins', {}).items():
-        if not key.startswith('codex@openai-codex'):
-            continue
-        for entry in entries:
-            install = entry.get('installPath')
-            if not install:
-                continue
-            install = os.path.expanduser(install)
-            cand = os.path.join(install, 'scripts/codex-companion.mjs')
-            if os.path.isfile(cand):
-                print(cand)
-                sys.exit(0)
-    # Fallback на прямой glob внутри того же HOME
-    for cand in sorted(glob.glob(os.path.join(base, '.claude/plugins/cache/openai-codex/codex/*/scripts/codex-companion.mjs'))):
-        if os.path.isfile(cand):
-            print(cand)
-            sys.exit(0)
-PY
-)"
-  if [ -n "$resolved" ] && [ -f "$resolved" ]; then
-    export CODEX_COMPANION="$resolved"
-    return 0
-  fi
-
-  # Fail — вернуть ошибку; вызывающий скилл обязан остановиться и спросить Сюзерена
-  return 1
-}
-
-if ! resolve_codex_companion; then
-  echo "CODEX_COMPANION_NOT_FOUND: путь к codex-companion.mjs не найден. HOME=$HOME USER=$USER" >&2
-  echo "Убедись, что плагин openai-codex установлен (/plugin install codex@openai-codex), или выставь CODEX_COMPANION вручную: export CODEX_COMPANION=\"\$HOME/.claude/plugins/cache/openai-codex/codex/<ver>/scripts/codex-companion.mjs\"" >&2
+if [ ! -x "$DISPATCH" ]; then
+  echo "CODEX_DISPATCH_NOT_FOUND: bin/codex-dispatch не найден или не исполняемый. DISPATCH=$DISPATCH" >&2
   exit 1
 fi
 
-# Smoke-check
-node "$CODEX_COMPANION" task --help >/dev/null 2>&1 || {
-  echo "CODEX_COMPANION_BROKEN: файл есть, но 'node $CODEX_COMPANION task --help' падает" >&2
+echo "DISPATCH=$DISPATCH"
+```
+
+Для обратной совместимости профильные скиллы (`intake`, `add-evidence`, `add-opponent`, `visualize`) пока продолжают вызывать `node "$CODEX_COMPANION" ...`. Поэтому в той же сессии Claude-main экспортирует legacy-путь к vendored companion:
+
+```bash
+CODEX_COMPANION="$(ls -1d ~/.claude/plugins/cache/strigov-cc-plugins/vassal-litigator-cc/*/vendor/codex-companion/scripts/codex-companion.mjs 2>/dev/null | sort -rV | head -1)"
+[ -z "$CODEX_COMPANION" ] && CODEX_COMPANION="$(pwd)/vendor/codex-companion/scripts/codex-companion.mjs"
+
+if [ ! -f "$CODEX_COMPANION" ]; then
+  echo "CODEX_COMPANION_NOT_FOUND: vendored codex-companion.mjs не найден. CODEX_COMPANION=$CODEX_COMPANION" >&2
+  exit 1
+fi
+
+export CODEX_COMPANION
+export CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA_OVERRIDE:-$HOME/.claude/plugins/data/vassal-litigator-cc-codex}"
+
+node "$CODEX_COMPANION" --help >/dev/null 2>&1 || {
+  echo "CODEX_COMPANION_BROKEN: файл есть, но 'node $CODEX_COMPANION --help' падает" >&2
   exit 1
 }
 
 echo "CODEX_COMPANION=$CODEX_COMPANION"
+echo "CLAUDE_PLUGIN_DATA=$CLAUDE_PLUGIN_DATA"
 ```
 
-Дальше во всех командах используется только `$CODEX_COMPANION`. Hardcoded `~/.claude/...` запрещён.
+Обязательный инвариант: любой documented-вызов `node "$CODEX_COMPANION" ...` должен идти **после** `export CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA_OVERRIDE:-$HOME/.claude/plugins/data/vassal-litigator-cc-codex}"`. Прямой legacy-вызов обходит `bin/codex-dispatch`; без этого export broker/state попадут в чужой data-dir, а orphan-scan потеряет изоляцию.
 
-Если ни один тир не сработал, Claude-main обязан вернуть `NEEDS_CONTEXT` и попросить Сюзерена либо проверить установку `openai-codex`, либо экспортировать `CODEX_COMPANION` с абсолютным путём.
+Если `$DISPATCH` или `$CODEX_COMPANION` не резолвятся, Claude-main обязан вернуть `NEEDS_CONTEXT` и попросить Сюзерена указать корректный plugin root или запустить из корня установленного `vassal-litigator-cc`.
+
+Orphan-брокеры от аварийно убитых Claude Code сессий чистятся автоматически: broker self-terminates примерно за 6 секунд после смерти родителя через heartbeat в `app-server-broker.mjs`, а `ensureBrokerSession` на старте подбирает оставшиеся orphan state через `scanOrphanBrokers`.
 
 ### 3. Feature-flag для визуализатора
 
@@ -153,7 +98,8 @@ codex features enable image_generation
 
 - `[CASE_ROOT]` — абсолютный путь к папке дела
 - `<PROMPT>` — уже отрендеренный промпт, где Claude-main **заменил** `[PLUGIN_ROOT]` и `[CASE_ROOT]` на абсолютные пути
-- `$CODEX_COMPANION` — путь к `codex-companion.mjs`, резолвленный разделом «Предусловия / Resolve `$CODEX_COMPANION`» и экспортированный в окружение
+- `$DISPATCH` — основной wrapper `bin/codex-dispatch`, резолвленный разделом «Предусловия / Resolve `$DISPATCH` и legacy `$CODEX_COMPANION`»
+- `$CODEX_COMPANION` — legacy-путь к vendored `codex-companion.mjs`, экспортированный вместе с изолированным `$CLAUDE_PLUGIN_DATA`
 
 ### 1. `file-executor` — medium, apply, `--write`
 
@@ -258,7 +204,7 @@ node "$CODEX_COMPANION" result "$TASK"
 Если нужен `sessionId`, бери JSON:
 
 ```bash
-node "$COMPANION" status "$TASK" --json
+node "$CODEX_COMPANION" status "$TASK" --json
 ```
 
 ## `--resume-last`, stale-lock и `--fresh`
@@ -274,7 +220,15 @@ node "$CODEX_COMPANION" task \
   "<PROMPT>"
 ```
 
-Если предыдущий запуск оборвался и companion считает сессию «ещё running», `--resume-last` может зависнуть на stale-lock. В этом случае workaround только один:
+Если предыдущий запуск был прерван, но текущий broker всё ещё жив, у него может остаться in-memory job state `status=running` даже после исчезновения OS-процесса задачи. В этом случае `--resume-last` может упереться в stale-lock:
+
+```text
+Task task-XXXX is still running. Use /codex:status before continuing it.
+```
+
+Правка JSON на диске в `~/.claude/plugins/data/vassal-litigator-cc-codex/state/<workspace-slug>/jobs/<task>.json` не помогает: живой broker держит состояние в памяти через `broker.sock`.
+
+Workaround для такого in-memory stale-lock — стартовать новую сессию через `--fresh`:
 
 ```bash
 node "$CODEX_COMPANION" task \
@@ -288,7 +242,9 @@ node "$CODEX_COMPANION" task \
 Правило:
 
 - follow-up по той же роли и тому же делу: сначала `--resume-last`
-- stale-lock / зависшая старая сессия: сразу `--fresh`
+- stale-lock внутри живого broker: `--fresh`
+
+Важно: `--fresh` больше не нужен для orphan-брокеров от прошлых `kill -9` / crash-сессий Claude Code. Эти процессы чистятся runtime-ом автоматически: heartbeat завершает broker примерно за 6 секунд после смерти parent process, а `ensureBrokerSession` на startup добирает оставшиеся orphan state через `scanOrphanBrokers`.
 
 ## Контракт путей: `[PLUGIN_ROOT]` и `[CASE_ROOT]`
 
@@ -397,7 +353,9 @@ export VASSAL_PLUGIN_ROOT_CACHE
 Перед первым dispatch в сессии проверь:
 
 ```bash
+test -n "${DISPATCH:-}" && test -x "$DISPATCH"
 test -n "${CODEX_COMPANION:-}" && test -f "$CODEX_COMPANION"
+test "${CLAUDE_PLUGIN_DATA:-}" = "${CLAUDE_PLUGIN_DATA_OVERRIDE:-$HOME/.claude/plugins/data/vassal-litigator-cc-codex}"
 test -f "$PLUGIN_ROOT/scripts/extract_text.py"
 test -f "$PLUGIN_ROOT/shared/conventions.md"
 test -d "$CASE_ROOT"
@@ -447,6 +405,17 @@ grep -n '\[PLUGIN_ROOT\]\|\[CASE_ROOT\]' "$ASSEMBLED_PROMPT_FILE" && echo "UNRES
 
 - Codex не должен видеть «нераскрытые» `{{include _preamble.md}}`, `[PLUGIN_ROOT]`, `[CASE_ROOT]`, `{{case_root}}`, `{{plugin_root}}` и любые другие `{{...}}`
 - если путь не удалось получить, правильный исход — `NEEDS_CONTEXT`, а не «попробую с относительным путём»
+
+## Session paths для debug
+
+- Wrapper: `[PLUGIN_ROOT]/bin/codex-dispatch`
+- Vendored companion: `[PLUGIN_ROOT]/vendor/codex-companion/scripts/codex-companion.mjs`
+- Vendored companion version: `[PLUGIN_ROOT]/vendor/codex-companion/VERSION`
+- Isolated data dir: `~/.claude/plugins/data/vassal-litigator-cc-codex`
+- State + jobs + broker.sock: `~/.claude/plugins/data/vassal-litigator-cc-codex/state/<workspace-slug>/`
+- Job log: `~/.claude/plugins/data/vassal-litigator-cc-codex/state/<workspace-slug>/jobs/task-XXXX.log`
+
+`ECONNREFUSED` на socket до первой реальной `task`-задачи означает, что broker ещё не стартовал.
 
 ## Save Codex report
 
@@ -536,8 +505,11 @@ IMAGE_PATH="$(find "$CODEX_HOME_RESOLVED/generated_images/$SESSION_ID" -maxdepth
 - Не использовать `--write` для `analytical-reviewer`
 - Не ожидать, что `$imagegen` сам сохранит файл по пути из промпта
 - Не считать `GENERATED_IMAGE:` гарантированным интерфейсом
-- Не пропускать `--fresh`, если stale-lock уже проявился
-- Не использовать hardcoded `~/.claude/plugins/cache/openai-codex/...` в командах. Версия в пути меняется с каждым обновлением плагина, а `$HOME` может быть переопределён. Всегда работай через `$CODEX_COMPANION`, один раз резолвленный в начале сессии.
+- Не пропускать `--fresh`, если stale-lock живого broker уже проявился
+- Не вызывать `codex-companion.mjs` напрямую из произвольного места; legacy `$CODEX_COMPANION` должен указывать только на vendored runtime этого плагина
+- Не вызывать `codex exec` напрямую, кроме явно описанного Branch B у `imagegen-visualizer`
+- Не делать documented `node "$CODEX_COMPANION" ...` без предварительного `export CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA_OVERRIDE:-$HOME/.claude/plugins/data/vassal-litigator-cc-codex}"`
+- Не хардкодить marketplace cache path в командах; всегда работай через `$DISPATCH` и legacy `$CODEX_COMPANION`, резолвленные один раз в начале сессии
 
 ## Результат, который ожидает Claude-main
 
@@ -546,5 +518,7 @@ IMAGE_PATH="$(find "$CODEX_HOME_RESOLVED/generated_images/$SESSION_ID" -maxdepth
 - роль выбирается строго из четырёх перечисленных выше
 - пути всегда переданы как абсолютные
 - cwd всегда равен `[CASE_ROOT]`
-- `$CODEX_COMPANION` резолвится один раз на сессию по 3-tier fallback (env → канонический `$HOME/.claude/plugins/cache/...` → парсинг `installed_plugins.json` → fail с подсказкой); hardcoded `~/.claude/...` запрещён
+- `$DISPATCH` резолвится один раз на сессию как primary transport через `bin/codex-dispatch`
+- `$CODEX_COMPANION` сохраняется как legacy export на vendored companion path для профильных скиллов
+- `CLAUDE_PLUGIN_DATA` всегда выставлен через `CLAUDE_PLUGIN_DATA_OVERRIDE` pattern до legacy companion-вызовов
 - для визуализатора путь к PNG резолвится через `sessionId` + `$CODEX_HOME/generated_images/...`

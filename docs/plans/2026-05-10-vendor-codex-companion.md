@@ -11,10 +11,10 @@ phases:
     status: done
   - id: Ф3
     scope: "Переписать skills/codex-invocation/SKILL.md под завендоренный companion: 0-tier resolve через bin/codex-dispatch, удалить старый 3-tier по openai-codex, добавить orphan auto-cleanup ноту, переписать stale-lock секцию"
-    status: in-progress
+    status: done
   - id: Ф4
     scope: "Перенести тесты vendor/codex-companion/tests/ + helpers; добавить tests/smoke/test-codex-dispatch.sh; запустить `node tests/index.js` локально"
-    status: pending
+    status: in-progress
   - id: Ф5
     scope: "Обновить README.md / ARCHITECTURE.md / CHANGELOG.md / plugin.json (description), удалить упоминания зависимости от openai-codex, добавить раздел про vendored companion"
     status: pending
