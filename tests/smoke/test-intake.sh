@@ -60,7 +60,7 @@ cat <<EOF
 $SMOKE_CASE
 
 ПРЕДУСЛОВИЯ:
-- openai-codex установлен, codex login выполнен
+- codex-companion завендорен, codex login выполнен
 - setup.sh прогонится автоматически внутри init-case (либо один раз запусти вручную)
 
 ШАГИ:

@@ -115,7 +115,7 @@ Plan-фаза сама проверяет по `origin.name` + `origin.archive_s
 
 Если Codex companion недоступен (`CODEX_COMPANION_NOT_FOUND`, `ECONNREFUSED`):
 
-- Сообщи Сюзерену: `Codex companion недоступен, add-opponent невозможен. Установи/перезапусти плагин openai-codex и повтори.`
+- Сообщи Сюзерену: `Codex companion недоступен, add-opponent невозможен. Проверь bin/codex-dispatch и повтори.`
 - Не переходи к самостоятельному исполнению.
 - Остановись.
 

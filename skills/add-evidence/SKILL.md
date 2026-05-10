@@ -98,6 +98,6 @@ description: >
 
 Если Codex companion не найден (`CODEX_COMPANION_NOT_FOUND`) или вернул `ECONNREFUSED`/ошибку запуска:
 
-- Сообщи Сюзерену: `Codex companion недоступен, add-evidence невозможен. Установи/перезапусти плагин openai-codex и повтори.`
+- Сообщи Сюзерену: `Codex companion недоступен, add-evidence невозможен. Проверь bin/codex-dispatch и повтори.`
 - Не переходи к самостоятельному исполнению. Вся черновая работа — за Codex medium.
 - Остановись.
