@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+## [1.3.0] — 2026-05-10
+
 ### Добавлено
 
 - Vendored `vendor/codex-companion/` (форк OpenAI codex-plugin v1.0.4) с orphan-fix: heartbeat broker-процесса, `scanOrphanBrokers` на старте и запуск без `detached:true`.
