@@ -1,5 +1,10 @@
 ## [Unreleased]
 
+### Добавлено
+
+- Vendored `vendor/codex-companion/` (форк OpenAI codex-plugin v1.0.4) с orphan-fix: heartbeat broker-процесса, `scanOrphanBrokers` на старте и запуск без `detached:true`.
+- `bin/codex-dispatch` wrapper для резолва vendored runtime из marketplace install или dev-tree с изолированным `CLAUDE_PLUGIN_DATA`.
+
 ### Изменено
 
 - Перенесены deterministic-скрипты `prepare_intake_workdir.py`, `scan_case_state.py`, `classify_ocr_quality.py` из reference-плагина.
@@ -7,6 +12,11 @@
 - `update-index` preview строится через `scan_case_state.py`, а OCR quality в apply/verify считается через единый `classify_ocr_quality.py`.
 - Добавлен machine-plan формат `<plan_basename>.yaml` для `intake`, `add-evidence`, `add-opponent`.
 - Apply-фазы `intake`, `add-evidence`, `add-opponent` переведены на детерминированный `scripts/apply_intake_plan.py` с предварительной `validate_machine_plan.py`-валидацией, resume guard и архивированием markdown/YAML плана в `.vassal/codex-logs/`.
+- `skills/codex-invocation/SKILL.md` переведён на vendored runtime: primary `$DISPATCH`, legacy `$CODEX_COMPANION` с обязательным isolated data-dir и обновлённой трактовкой stale-lock/`--fresh`.
+
+### Удалено
+
+- Hard-зависимость от плагина `openai-codex`; active Codex transport теперь поставляется вместе с `vassal-litigator-cc`.
 
 ## [vassal-litigator-cc] v1.0.0 -- 2026-04-22
 

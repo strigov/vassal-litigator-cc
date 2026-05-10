@@ -201,21 +201,20 @@ rm "Входящие документы/файл.pdf"
 **Недостающие данные:** [чего не хватает]
 ```
 
-## Зависимости от внешних плагинов
+## Codex transport
 
-Начиная с линии `v0.5.0`, плагин использует внешний плагин `openai-codex` как инфраструктурную зависимость для Codex-ролей: файловый apply, сборку таймлайна, sidecar-визуализации и контрольное ревью аналитики.
+Плагин использует Codex CLI для Codex-ролей: файловый apply, сборку таймлайна, sidecar-визуализации и контрольное ревью аналитики. Transport поставляется вместе с плагином в `vendor/codex-companion/`; внешний Claude Code plugin для этого не нужен.
 
 Что требуется:
-- Установленный плагин `openai-codex`
-- Companion entrypoint: `$CODEX_COMPANION` (резолвится один раз на сессию по 3-tier fallback в `skills/codex-invocation/SKILL.md`: env → канонический `$HOME/.claude/plugins/cache/openai-codex/codex/<version>/scripts/codex-companion.mjs` → парсинг `installed_plugins.json` → fail)
+- Standalone Codex CLI с выполненным `codex login`
+- Primary entrypoint: `$DISPATCH` → `bin/codex-dispatch`
+- Legacy companion entrypoint: `$CODEX_COMPANION` → `vendor/codex-companion/scripts/codex-companion.mjs`
+- Изолированный data-dir: `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA_OVERRIDE:-$HOME/.claude/plugins/data/vassal-litigator-cc-codex}"`
 - Минимальная эмпирически верифицированная версия Codex CLI: `0.121.0`
 
 Зачем это нужно:
 - Часть работы выводится из Claude main-thread в Codex CLI: medium для файлового apply, high для timeline, xhigh для review, отдельный runtime-навык `image_gen` для sidecar-визуализаций
 - Единый контракт вызова и fallback-правила описаны в `skills/codex-invocation/SKILL.md`
 
-Почему не декларируется в `plugin.json`:
-- Claude Code plugin format не поддерживает манифест-поле `dependencies` для кросс-плагинных зависимостей; поэтому `openai-codex` оформляется как README-prerequisite.
-
 Практическое правило:
-- Если Codex-вызовы перестали работать после обновления `openai-codex`, проверь резолв `$CODEX_COMPANION` (`test -f "$CODEX_COMPANION"` и `node "$CODEX_COMPANION" task --help`). При `CODEX_COMPANION_NOT_FOUND` запусти `codex login` или переустанови плагин `openai-codex`.
+- Если Codex-вызовы перестали работать, проверь `$DISPATCH` (`test -x "$DISPATCH"` и `"$DISPATCH" --help`) и legacy `$CODEX_COMPANION` (`test -f "$CODEX_COMPANION"` и `node "$CODEX_COMPANION" --help`). При `CODEX_COMPANION_NOT_FOUND` проверь установку плагина, `codex login` и `CLAUDE_PLUGIN_DATA`.

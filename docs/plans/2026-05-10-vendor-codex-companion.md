@@ -1,7 +1,7 @@
 ---
 slug: vendor-codex-companion
 created: 2026-05-10
-status: in-progress
+status: done
 phases:
   - id: Ф1
     scope: "Завендорить vendor/codex-companion/ из superpowers-strigov-ver (scripts + schemas + prompts + LICENSE/NOTICE/VERSION/.claude-plugin), без тестов; smoke `node companion.mjs --help`"
@@ -17,7 +17,7 @@ phases:
     status: done
   - id: Ф5
     scope: "Обновить README.md / ARCHITECTURE.md / CHANGELOG.md / plugin.json (description), удалить упоминания зависимости от openai-codex, добавить раздел про vendored companion"
-    status: in-progress
+    status: done
 ---
 
 # Vendor codex-companion в vassal-litigator-cc
