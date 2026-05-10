@@ -8,10 +8,10 @@ phases:
     status: done
   - id: Ф2
     scope: "Добавить bin/codex-dispatch wrapper, адаптированный под vassal-litigator-cc (resolve marketplace + dev path; CLAUDE_PLUGIN_DATA isolation; без model-pinning)"
-    status: in-progress
+    status: done
   - id: Ф3
     scope: "Переписать skills/codex-invocation/SKILL.md под завендоренный companion: 0-tier resolve через bin/codex-dispatch, удалить старый 3-tier по openai-codex, добавить orphan auto-cleanup ноту, переписать stale-lock секцию"
-    status: pending
+    status: in-progress
   - id: Ф4
     scope: "Перенести тесты vendor/codex-companion/tests/ + helpers; добавить tests/smoke/test-codex-dispatch.sh; запустить `node tests/index.js` локально"
     status: pending

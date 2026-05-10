@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Wrapper for the vendored Codex companion runtime.
+#
+# Resolves codex-companion.mjs regardless of install layout (marketplace cache
+# or local dev tree), and pins CLAUDE_PLUGIN_DATA so jobs/broker.sock state is
+# isolated from other Codex plugin installs on the same machine.
+#
+# Usage: codex-dispatch <task|status|result|cancel|review|...> [args...]
+set -eu
+
+resolve_companion() {
+  local marketplace_glob="$HOME/.claude/plugins/cache/strigov-cc-plugins/vassal-litigator-cc/*/vendor/codex-companion/scripts/codex-companion.mjs"
+  local newest=""
+  for path in $(ls -1d $marketplace_glob 2>/dev/null | sort -rV); do
+    if [ -f "$path" ]; then newest="$path"; break; fi
+  done
+  if [ -n "$newest" ]; then echo "$newest"; return; fi
+
+  local self_dir
+  self_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  local dev_path="$self_dir/../vendor/codex-companion/scripts/codex-companion.mjs"
+  if [ -f "$dev_path" ]; then echo "$dev_path"; return; fi
+
+  echo ""
+}
+
+COMPANION="$(resolve_companion)"
+if [ -z "$COMPANION" ]; then
+  echo "codex-dispatch: cannot find vendor/codex-companion/scripts/codex-companion.mjs" >&2
+  echo "  searched: ~/.claude/plugins/cache/strigov-cc-plugins/vassal-litigator-cc/*/vendor/... and \$(dirname codex-dispatch)/../vendor/..." >&2
+  exit 1
+fi
+
+export CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA_OVERRIDE:-$HOME/.claude/plugins/data/vassal-litigator-cc-codex}"
+
+exec node "$COMPANION" "$@"
