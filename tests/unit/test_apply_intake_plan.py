@@ -367,7 +367,8 @@ def test_validate_rejects_raw_only_bad_raw_dest_name(tmp_path: Path) -> None:
         work_dir=work_dir,
     )
     for raw_dest_name in ["../pack.zip", "/tmp/pack.zip", "..", "nested/path.zip"]:
-        raw_file = source_inbox / f"pack_{raw_dest_name.replace('/', '_').replace('..', 'up').replace('\\\\', 'back')}.zip"
+        safe_name = raw_dest_name.replace("/", "_").replace("..", "up").replace("\\\\", "back")
+        raw_file = source_inbox / f"pack_{safe_name}.zip"
         _write_file(raw_file, "zip")
         plan = _write_plan(
             case_root=case_root,
