@@ -63,7 +63,7 @@ def extract_pdf_ocr(filepath: str, pages: int) -> dict:
         result = subprocess.run(
             ["ocrmypdf", "--force-ocr", "-l", "rus+eng", "--sidecar", "/dev/stdout",
              filepath, "/dev/null"],
-            capture_output=True, text=True, timeout=120
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120
         )
         if result.stdout.strip():
             return {
@@ -80,7 +80,7 @@ def extract_pdf_ocr(filepath: str, pages: int) -> dict:
     try:
         result = subprocess.run(
             ["tesseract", filepath, "stdout", "-l", "rus+eng"],
-            capture_output=True, text=True, timeout=60
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60
         )
         if result.stdout.strip():
             return {
@@ -159,7 +159,7 @@ def extract_image_ocr(filepath: str) -> dict:
     try:
         result = subprocess.run(
             ["tesseract", filepath, "stdout", "-l", "rus+eng"],
-            capture_output=True, text=True, timeout=60
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60
         )
         if result.stdout.strip():
             confidence = "medium" if len(result.stdout) > 100 else "low"

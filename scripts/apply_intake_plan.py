@@ -326,6 +326,8 @@ def _run_image_to_pdf(inputs: list[Path], output: Path) -> None:
         [sys.executable, str(script), "--out", str(output), "--in", *[str(path) for path in inputs]],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
     if proc.returncode != 0:
@@ -339,6 +341,8 @@ def _run_extract_text(path: Path, output_dir: Path) -> dict[str, Any]:
         [sys.executable, str(script), str(path), "--output-dir", str(output_dir)],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
     if proc.returncode != 0:

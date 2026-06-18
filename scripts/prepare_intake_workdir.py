@@ -256,6 +256,8 @@ def _prelist_7z_members(archive_path: Path) -> tuple[list[str] | None, str | Non
             ["7z", "l", "-slt", str(archive_path)],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
         )
     except FileNotFoundError:
         return None, "7z command not found"
@@ -276,6 +278,8 @@ def _prelist_rar_members(archive_path: Path) -> tuple[list[str] | None, str | No
             ["unrar", "l", str(archive_path)],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
         )
     except FileNotFoundError:
         return None, "unrar command not found"
@@ -323,7 +327,7 @@ def _extract_7z_archive(archive_path: Path, scratch_dir: Path, extract_root: Pat
     cmd = ["7z", "x", "-y", f"-o{scratch_dir}", str(archive_path)]
     try:
         try:
-            proc = subprocess.run(cmd, capture_output=True, text=True)
+            proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
         except FileNotFoundError:
             return False, "7z command not found"
         if proc.returncode != 0:
@@ -366,7 +370,7 @@ def _extract_rar_archive(archive_path: Path, scratch_dir: Path, extract_root: Pa
     cmd = ["unrar", "x", "-y", "-inul", str(archive_path), f"{scratch_dir}/"]
     try:
         try:
-            proc = subprocess.run(cmd, capture_output=True, text=True)
+            proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
         except FileNotFoundError:
             return False, "unrar command not found"
         if proc.returncode != 0:
