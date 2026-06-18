@@ -97,6 +97,8 @@ def _run(case_root: Path, plan: Path, mode: str) -> subprocess.CompletedProcess[
     return subprocess.run(
         [sys.executable, "scripts/validate_machine_plan.py", str(case_root), "--plan-yaml", str(plan), "--mode", mode],
         text=True,
+        encoding="utf-8",
+        errors="replace",
         capture_output=True,
         check=False,
     )

@@ -17,6 +17,7 @@ import sys
 import json
 import os
 import subprocess
+import tempfile
 from pathlib import Path
 
 def extract_pdf_text(filepath: str) -> dict:
@@ -60,14 +61,23 @@ def extract_pdf_text(filepath: str) -> dict:
 def extract_pdf_ocr(filepath: str, pages: int) -> dict:
     """OCR через tesseract для PDF без текста."""
     try:
-        result = subprocess.run(
-            ["ocrmypdf", "--force-ocr", "-l", "rus+eng", "--sidecar", "/dev/stdout",
-             filepath, "/dev/null"],
-            capture_output=True, text=True, timeout=120
-        )
-        if result.stdout.strip():
+        # Через временные файлы вместо /dev/stdout и /dev/null —
+        # эти пути существуют только на Unix и ломают OCR PDF под Windows.
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sidecar = os.path.join(tmpdir, "sidecar.txt")
+            out_pdf = os.path.join(tmpdir, "out.pdf")
+            subprocess.run(
+                ["ocrmypdf", "--force-ocr", "-l", "rus+eng", "--sidecar", sidecar,
+                 filepath, out_pdf],
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120
+            )
+            sidecar_text = ""
+            if os.path.exists(sidecar):
+                with open(sidecar, encoding="utf-8", errors="replace") as fh:
+                    sidecar_text = fh.read()
+        if sidecar_text.strip():
             return {
-                "text": result.stdout,
+                "text": sidecar_text,
                 "method": "ocr",
                 "confidence": "medium",
                 "pages": pages,
@@ -80,7 +90,7 @@ def extract_pdf_ocr(filepath: str, pages: int) -> dict:
     try:
         result = subprocess.run(
             ["tesseract", filepath, "stdout", "-l", "rus+eng"],
-            capture_output=True, text=True, timeout=60
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60
         )
         if result.stdout.strip():
             return {
@@ -159,7 +169,7 @@ def extract_image_ocr(filepath: str) -> dict:
     try:
         result = subprocess.run(
             ["tesseract", filepath, "stdout", "-l", "rus+eng"],
-            capture_output=True, text=True, timeout=60
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60
         )
         if result.stdout.strip():
             confidence = "medium" if len(result.stdout) > 100 else "low"

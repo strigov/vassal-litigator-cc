@@ -1,5 +1,16 @@
 ## [Unreleased]
 
+## [1.4.0] — 2026-06-18
+
+### Исправлено
+
+- **OCR/intake падали на нативном Windows (cp1251).** `subprocess.run(..., text=True)` вызывался без `encoding=`, поэтому UTF-8 вывод дочерних процессов (tesseract, ocrmypdf, 7z, unrar, дочерний `python`) декодировался системной кодировкой (cp1251 на русской Windows) → `UnicodeDecodeError` в reader-потоке subprocess → `result.stdout` становился `None` → `AttributeError: 'NoneType' object has no attribute 'strip'`. Добавлен `encoding="utf-8", errors="replace"` во все `subprocess.run(...)` с захватом текста в `scripts/extract_text.py`, `scripts/prepare_intake_workdir.py`, `scripts/apply_intake_plan.py` (и в тестовых хелперах для консистентности). На Linux/WSL поведение не меняется. (#1)
+- **OCR PDF не работал под Windows из-за Unix-only путей.** `extract_pdf_ocr` передавал в `ocrmypdf` `--sidecar /dev/stdout` и выход `/dev/null` — эти пути существуют только на Unix. Переписано на временные файлы (`tempfile.TemporaryDirectory`), работает кросс-платформенно.
+
+### Прочее
+
+- В `.gitignore` добавлен `system-commandline-sentinel-files/` (артефакты dotnet-suggest / git-credential-manager на Windows).
+
 ## [1.3.0] — 2026-05-10
 
 ### Добавлено

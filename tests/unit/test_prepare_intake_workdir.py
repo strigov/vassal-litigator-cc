@@ -270,6 +270,8 @@ def test_cli_subprocess_valid_json(tmp_path: Path) -> None:
         [sys.executable, str(script), str(inbox), "--work-dir", str(work)],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         env=env,
     )
     assert proc.returncode == 0, f"stderr: {proc.stderr}"

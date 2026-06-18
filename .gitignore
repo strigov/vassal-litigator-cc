@@ -16,5 +16,8 @@ venv/
 .vscode/
 .idea/
 
+# Windows / .NET tooling artifacts (dotnet-suggest, git-credential-manager)
+system-commandline-sentinel-files/
+
 # Case data (never commit real case files)
 cases/

@@ -66,7 +66,7 @@ def _build_plan(tmp_path: Path, batch: str, fixture_name: str) -> tuple[Path, Pa
 
 
 def _run(args: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(args, text=True, capture_output=True, check=False)
+    return subprocess.run(args, text=True, encoding="utf-8", errors="replace", capture_output=True, check=False)
 
 
 def test_apply_intake_plan_contract_for_supported_batches(tmp_path: Path) -> None:
